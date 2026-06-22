@@ -4,21 +4,21 @@ interface Stat {
 }
 
 const statsData: Stat[] = [
-  { value: '2.5M+', label: 'Total Students' },
-  { value: '4,500+', label: 'Professional Courses' },
-  { value: '850k+', label: 'Certified Graduates' },
-  { value: '1,200+', label: 'Industry Instructors' },
+  { value: "2.5M+", label: "Total Students" },
+  { value: "4,500+", label: "Professional Courses" },
+  { value: "850k+", label: "Certified Graduates" },
+  { value: "1,200+", label: "Industry Instructors" },
 ];
 
 export default function Stats() {
   return (
-    <section className="grid grid-cols-2 md:grid-cols-4 gap-8">
+    <section className="grid grid-cols-2 md:grid-cols-4 gap-10 px-10  w-full max-w-container-max mx-auto">
       {statsData.map((stat, index) => (
         <div
           key={index}
           className="bg-white p-6 rounded-xl border border-outline-variant shadow-soft flex flex-col items-center justify-center text-center"
         >
-          <span className="font-headline-lg text-headline-lg text-primary">
+          <span className="font-headline-lg text-headline-lg text-on-surface">
             {stat.value}
           </span>
           <span className="font-body-sm text-body-sm text-secondary mt-2">
