@@ -25,6 +25,7 @@ interface CourseCheckoutCardProps {
   totalLessons: number;
   handleEnroll: () => void;
   setActivePreviewVideo: (url: string) => void;
+  enrolled?: boolean;
 }
 
 export default function CourseCheckoutCard({
@@ -33,6 +34,7 @@ export default function CourseCheckoutCard({
   totalLessons,
   handleEnroll,
   setActivePreviewVideo,
+  enrolled = false,
 }: CourseCheckoutCardProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -80,9 +82,13 @@ export default function CourseCheckoutCard({
 
         <button
           onClick={handleEnroll}
-          className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md shadow-primary/20 transition-all cursor-pointer text-center"
+          className={`w-full font-bold py-3.5 px-4 rounded-xl shadow-md transition-all cursor-pointer text-center ${
+            enrolled
+              ? "bg-green-600 hover:bg-green-700 text-white shadow-green-600/20"
+              : "bg-primary hover:bg-primary/95 text-white shadow-primary/20"
+          }`}
         >
-          Đăng Ký Học Ngay
+          {enrolled ? "Vào Học Ngay" : "Đăng Ký Học Ngay"}
         </button>
 
         <div className="space-y-4 pt-6 border-t border-gray-100">

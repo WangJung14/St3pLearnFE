@@ -1,6 +1,6 @@
 "use client";
 import { Eye, EyeOff, BookOpen } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +12,18 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+  const [redirectUrl, setRedirectUrl] = useState("/dashboard");
+
+  // lay duong dan redirect tu search params sau khi dang nhap
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get("redirect");
+      if (r) {
+        setRedirectUrl(r);
+      }
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +32,7 @@ export default function LoginPage() {
       const res = await login(email, password);
       if (res.success) {
         alert("Đăng nhập thành công!");
-        router.push("/dashboard");
+        router.push(redirectUrl);
       } else {
         alert(res.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
       }

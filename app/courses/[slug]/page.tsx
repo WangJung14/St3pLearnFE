@@ -1,11 +1,13 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { ArrowLeft, Star, Users } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import ChapterAccordion, { Chapter } from "@/components/courses/ChapterAccordion";
 import CourseCheckoutCard, { CourseDetail } from "@/components/courses/CourseCheckoutCard";
 import VideoModal from "@/components/courses/VideoModal";
@@ -341,6 +343,8 @@ export default function CourseDetailPage({
 
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [activePreviewVideo, setActivePreviewVideo] = useState<string | null>(null);
+  const { token, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   // lay chi tiet khoa hoc tu api nha
   const { data: course, error, isLoading } = useSWR<CourseDetail>(
@@ -354,6 +358,22 @@ export default function CourseDetailPage({
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
+  // lay danh sach wishlist cua ong hoc vien tu be
+  const { data: wishlistResponse, mutate: mutateWishlist } = useSWR(
+    token ? ["http://localhost:8080/api/wishlists", token] : null,
+    async ([url, t]) => {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${t}`,
+        },
+      });
+      if (!res.ok) throw new Error("Fetch wishlist failed");
+      const body = await res.json();
+      return body.data;
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+
   const toggleChapter = (chapterId: string) => {
     setExpandedChapters((prev) => ({
       ...prev,
@@ -361,21 +381,90 @@ export default function CourseDetailPage({
     }));
   };
 
-  const handleEnroll = () => {
-    alert(
-      "Tính năng mua khóa học đang được tích hợp cùng cổng thanh toán! Bạn sẽ sớm nhận được thông báo mới nhất."
-    );
-  };
+  // backup dang ky offline phong ho BE loi
+  const [localEnrolled, setLocalEnrolled] = useState<string[]>([]);
+  
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("st3p_enrolled_local");
+      if (saved) {
+        setLocalEnrolled(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Loi doc localstorage", e);
+    }
+  }, []);
 
-  // lay du lieu api hoac dung mock data
+  // check xem ong nay dang ky khoa nay chua
   let courseData = course;
   let isFallback = false;
 
   if (error || !course) {
-    // lay mock detail tu danh sach
     courseData = MOCK_DETAILS[slug] || MOCK_DETAILS["ielts-masterclass-step-by-step-7-5"];
     isFallback = true;
   }
+
+  const isEnrolledInWishlist = wishlistResponse?.content?.some(
+    (item: any) => item.slug === slug || (courseData?.id && item.id === courseData.id)
+  ) || false;
+
+  const isEnrolledInLocal = courseData?.id ? localEnrolled.includes(courseData.id) : false;
+  const enrolled = isEnrolledInWishlist || isEnrolledInLocal;
+
+  // xu ly click dang ky hoc
+  const handleEnroll = async () => {
+    if (!isAuthenticated) {
+      // chua login thi bay sang trang login lien
+      router.push(`/login?redirect=/courses/${slug}`);
+      return;
+    }
+
+    if (enrolled) {
+      // neu dang ky roi thi cuon xuong chuong trinh hoc de xem luon
+      const el = document.getElementById("curriculum-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+      return;
+    }
+
+    if (!courseData?.id) return;
+
+    try {
+      const res = await fetch(`http://localhost:8080/api/wishlists/course/${courseData.id}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const body = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(body?.message || "Loi goi API dang ky");
+      }
+
+      alert("Đăng ký khóa học thành công!");
+
+      // dong bo local luon cho chac
+      const updatedLocal = [...localEnrolled, courseData.id];
+      setLocalEnrolled(updatedLocal);
+      localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
+
+      mutateWishlist();
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.warn("API error, saving to local instead: ", err.message);
+      // fallback luu local cho nguoi dung test muot ma
+      const updatedLocal = [...localEnrolled, courseData.id];
+      setLocalEnrolled(updatedLocal);
+      localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
+
+      alert("Đăng ký khóa học thành công (Offline Mode)!");
+      router.push("/dashboard");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -465,7 +554,7 @@ export default function CourseDetailPage({
               </div>
 
               {/* danh sach chuong/bai hoc */}
-              <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-soft">
+              <div id="curriculum-section" className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-soft">
                 <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">Nội dung chương trình học</h2>
@@ -496,6 +585,7 @@ export default function CourseDetailPage({
                   totalLessons={totalLessons}
                   handleEnroll={handleEnroll}
                   setActivePreviewVideo={setActivePreviewVideo}
+                  enrolled={enrolled}
                 />
               )}
             </div>

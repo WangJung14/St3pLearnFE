@@ -47,21 +47,43 @@ const MOCK_PROFILE: Profile = {
   birthDate: "2005-06-15",
 };
 
-const MOCK_ENROLLED: EnrolledCourse[] = [
+const MOCK_COURSES_DATA = [
   {
+    id: "ielts-1",
     title: "IELTS Masterclass: Step-by-Step 7.5+",
     slug: "ielts-masterclass-step-by-step-7-5",
     thumbnail: "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400",
-    progress: 75,
-    lastActive: "2 giờ trước",
   },
   {
+    id: "grammar-1",
     title: "English Grammar for Beginners & Intermediate",
     slug: "english-grammar-for-beginners-intermediate",
     thumbnail: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=400",
-    progress: 30,
-    lastActive: "Hôm qua",
   },
+  {
+    id: "listening-1",
+    title: "Listening & Pronunciation Secrets",
+    slug: "listening-pronunciation-secrets",
+    thumbnail: "https://images.unsplash.com/photo-1522881197277-c6cf5246ca88?q=80&w=400",
+  },
+  {
+    id: "vocabulary-1",
+    title: "Vocabulary Boost: 3000 Academic Words",
+    slug: "vocabulary-boost-3000-academic-words",
+    thumbnail: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=400",
+  },
+  {
+    id: "toeic-1",
+    title: "TOEIC 800+ Target Comprehensive Prep",
+    slug: "toeic-800-target-prep",
+    thumbnail: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=400",
+  },
+  {
+    id: "writing-1",
+    title: "Academic Writing Excellence for Essays",
+    slug: "academic-writing-excellence",
+    thumbnail: "https://images.unsplash.com/photo-1455390582262-044cdead277a?q=80&w=400",
+  }
 ];
 
 // goi api chung
@@ -111,6 +133,72 @@ export default function DashboardPage() {
   );
 
   const profile = profileResponse || MOCK_PROFILE;
+
+  // fetch wishlist de lay danh sach khoa hoc hoc vien da dang ky
+  const { data: wishlistResponse } = useSWR(
+    token ? ["http://localhost:8080/api/wishlists", token] : null,
+    async ([url, t]) => {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${t}`,
+        },
+      });
+      if (!res.ok) throw new Error("Fetch wishlist failed");
+      const body = await res.json();
+      return body.data;
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+
+  // doc tu localstorage phong ho BE loi luc test
+  const [localEnrolledIds, setLocalEnrolledIds] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("st3p_enrolled_local");
+      if (saved) {
+        setLocalEnrolledIds(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Loi doc localstorage dashboard", e);
+    }
+  }, []);
+
+  // map cac khoa hoc tu api sang dung kieu OverviewTab can
+  const apiEnrolled: EnrolledCourse[] = wishlistResponse?.content?.map((item: any) => ({
+    title: item.title,
+    slug: item.slug,
+    thumbnail: item.thumbnailUrl || "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400",
+    progress: 0,
+    lastActive: "Vừa xong",
+  })) || [];
+
+  // map tiep cac khoa dang ky offline trong localstorage
+  const localEnrolled: EnrolledCourse[] = [];
+  localEnrolledIds.forEach((id) => {
+    const existsInApi = wishlistResponse?.content?.some((item: any) => item.id === id);
+    if (!existsInApi) {
+      const matched = MOCK_COURSES_DATA.find((c) => c.id === id);
+      if (matched) {
+        localEnrolled.push({
+          title: matched.title,
+          slug: matched.slug,
+          thumbnail: matched.thumbnail,
+          progress: 0,
+          lastActive: "Offline Mode",
+        });
+      } else {
+        localEnrolled.push({
+          title: `Khóa học offline (${id.substring(0, 8)})`,
+          slug: "",
+          thumbnail: "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400",
+          progress: 0,
+          lastActive: "Offline Mode",
+        });
+      }
+    }
+  });
+
+  const enrolledCourses = [...apiEnrolled, ...localEnrolled];
 
   // fill data vao form de sua
   useEffect(() => {
@@ -230,7 +318,7 @@ export default function DashboardPage() {
 
         {/* noi dung tab */}
         {activeTab === "overview" ? (
-          <OverviewTab enrolledCourses={MOCK_ENROLLED} />
+          <OverviewTab enrolledCourses={enrolledCourses} />
         ) : (
           <EditProfileTab
             fullName={fullName}
