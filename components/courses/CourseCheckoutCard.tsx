@@ -1,6 +1,7 @@
 "use client";
 
 import { PlayCircle, Clock, BookOpen, Award, Globe } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 import { Chapter } from "./ChapterAccordion";
 
@@ -36,6 +37,8 @@ export default function CourseCheckoutCard({
   setActivePreviewVideo,
   enrolled = false,
 }: CourseCheckoutCardProps) {
+  const toast = useToast();
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -61,7 +64,7 @@ export default function CourseCheckoutCard({
               if (firstPreview?.videoUrl) {
                 setActivePreviewVideo(firstPreview.videoUrl);
               } else {
-                alert("Khóa học chưa có video xem thử!");
+                toast.info("Chưa có video xem thử", "Giáo viên chưa bật preview cho khóa học này.");
               }
             }}
             className="bg-white text-primary hover:scale-105 p-4 rounded-full shadow-lg transition-transform cursor-pointer"

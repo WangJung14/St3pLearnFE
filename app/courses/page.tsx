@@ -7,6 +7,7 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import CourseCard, { Course } from "@/components/courses/CourseCard";
 import FilterBar from "@/components/courses/FilterBar";
+import { API_BASE_URL } from "@/lib/apiConfig";
 
 interface Category {
   id: string;
@@ -121,7 +122,7 @@ export default function CoursesPage() {
   }, [search]);
 
   // lay list category tu backend nha
-  const { data: catResponse } = useSWR("http://localhost:8080/api/categories", async (url) => {
+  const { data: catResponse } = useSWR(`${API_BASE_URL}/api/categories`, async (url) => {
     try {
       const res = await fetch(url);
       if (res.ok) {
@@ -149,7 +150,7 @@ export default function CoursesPage() {
 
   // lay danh sach course tu backend qua gateway 8080
   const { data: coursesResponse, error: coursesError, isLoading: coursesLoading } = useSWR(
-    `http://localhost:8080/api/courses/p/search?${queryParams.toString()}`,
+    `${API_BASE_URL}/api/courses/p/search?${queryParams.toString()}`,
     async (url) => {
       const res = await fetch(url);
       if (!res.ok) throw new Error("API call failed");

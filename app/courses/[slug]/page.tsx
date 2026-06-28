@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ArrowLeft, Star, Users } from "lucide-react";
+import { ArrowLeft, Star, Users, Heart, BookOpen, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { useAuth } from "@/context/AuthContext";
@@ -11,6 +11,50 @@ import { useRouter } from "next/navigation";
 import ChapterAccordion, { Chapter } from "@/components/courses/ChapterAccordion";
 import CourseCheckoutCard, { CourseDetail } from "@/components/courses/CourseCheckoutCard";
 import VideoModal from "@/components/courses/VideoModal";
+import ReviewForm from "@/components/courses/ReviewForm";
+import { API_BASE_URL } from "@/lib/apiConfig";
+import { apiFetch } from "@/lib/apiFetch";
+import { useToast } from "@/components/ui/Toast";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface WishlistItem {
+  id: string;
+  slug?: string;
+  title?: string;
+  course?: {
+    id?: string;
+    slug?: string;
+    title?: string;
+  };
+}
+
+interface Review {
+  id: string;
+  studentId?: string;
+  rating: number;
+  reviewText?: string;
+  comment?: string;
+  authorName?: string;
+  authorAvatarUrl?: string;
+  createdAt?: string;
+}
+
+interface PagePayload<T> {
+  content?: T[];
+}
+
+interface ApiListResponse<T> {
+  data?: T[] | PagePayload<T>;
+  content?: T[];
+}
+
+function unwrapList<T>(body: ApiListResponse<T>): T[] {
+  const payload = body.data ?? body.content ?? [];
+  return Array.isArray(payload) ? payload : payload.content ?? [];
+}
 
 // Complete Mock Detailed Data for Courses
 const MOCK_DETAILS: Record<string, CourseDetail> = {
@@ -343,36 +387,81 @@ export default function CourseDetailPage({
 
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [activePreviewVideo, setActivePreviewVideo] = useState<string | null>(null);
-  const { token, isAuthenticated } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editingReviewText, setEditingReviewText] = useState("");
+  const [editingReviewRating, setEditingReviewRating] = useState(5);
+  const [reviewActionId, setReviewActionId] = useState<string | null>(null);
+  const { token, isAuthenticated, user } = useAuth();
   const router = useRouter();
+  const toast = useToast();
 
-  // lay chi tiet khoa hoc tu api nha
+  // Fetch course detail from API
   const { data: course, error, isLoading } = useSWR<CourseDetail>(
-    `http://localhost:8080/api/courses/p/${slug}`,
+    `${API_BASE_URL}/api/courses/p/${slug}`,
     async (url) => {
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Course not found in backend");
-      const body = await res.json();
-      return body.data;
+      if (!res.ok) throw new Error("Course not found");
+      const body = await res.json() as { data?: CourseDetail };
+      return body.data ?? (body as unknown as CourseDetail);
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  // lay danh sach wishlist cua ong hoc vien tu be
-  const { data: wishlistResponse, mutate: mutateWishlist } = useSWR(
-    token ? ["http://localhost:8080/api/wishlists", token] : null,
-    async ([url, t]) => {
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${t}`,
-        },
-      });
-      if (!res.ok) throw new Error("Fetch wishlist failed");
-      const body = await res.json();
-      return body.data;
-    },
+  // Offline fallback
+  let courseData: CourseDetail | undefined = course;
+  let isFallback = false;
+  if (error || !course) {
+    courseData = MOCK_DETAILS[slug] ?? MOCK_DETAILS["ielts-masterclass-step-by-step-7-5"];
+    isFallback = true;
+  }
+
+  // courseId dùng cho API calls (từ real data hoặc fallback mock)
+  const courseId = course?.id ?? MOCK_DETAILS[slug]?.id;
+
+  // Wishlist
+  const { data: wishlistData, mutate: mutateWishlist } = useSWR<WishlistItem[]>(
+    token ? `${API_BASE_URL}/api/wishlists` : null,
+    (url) =>
+      fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json())
+        .then((body: ApiListResponse<WishlistItem>) => unwrapList(body)),
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
+
+  // Reviews — GET /api/courses/p/{courseId}/reviews
+  const {
+    data: reviews = [],
+    isLoading: reviewsLoading,
+    mutate: mutateReviews,
+  } = useSWR<Review[]>(
+    courseId ? `${API_BASE_URL}/api/courses/p/${courseId}/reviews?page=0&size=10` : null,
+    (url) =>
+      fetch(url)
+        .then((r) => r.json())
+        .then((body: ApiListResponse<Review>) => unwrapList(body)),
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+
+  // Local enrollment state (backup khi chưa có GET /api/enrollments)
+  const [localEnrolled, setLocalEnrolled] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("st3p_enrolled_local");
+      if (saved) setLocalEnrolled(JSON.parse(saved) as string[]);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const isEnrolled = courseData?.id ? localEnrolled.includes(courseData.id) : false;
+  const isInWishlist =
+    wishlistData?.some(
+      (item: WishlistItem) =>
+        item.slug === slug ||
+        item.course?.slug === slug ||
+        (courseData?.id && (item.id === courseData.id || item.course?.id === courseData.id))
+    ) ?? false;
 
   const toggleChapter = (chapterId: string) => {
     setExpandedChapters((prev) => ({
@@ -381,88 +470,162 @@ export default function CourseDetailPage({
     }));
   };
 
-  // backup dang ky offline phong ho BE loi
-  const [localEnrolled, setLocalEnrolled] = useState<string[]>([]);
-  
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("st3p_enrolled_local");
-      if (saved) {
-        setLocalEnrolled(JSON.parse(saved));
-      }
-    } catch (e) {
-      console.error("Loi doc localstorage", e);
-    }
-  }, []);
-
-  // check xem ong nay dang ky khoa nay chua
-  let courseData = course;
-  let isFallback = false;
-
-  if (error || !course) {
-    courseData = MOCK_DETAILS[slug] || MOCK_DETAILS["ielts-masterclass-step-by-step-7-5"];
-    isFallback = true;
-  }
-
-  const isEnrolledInWishlist = wishlistResponse?.content?.some(
-    (item: any) => item.slug === slug || (courseData?.id && item.id === courseData.id)
-  ) || false;
-
-  const isEnrolledInLocal = courseData?.id ? localEnrolled.includes(courseData.id) : false;
-  const enrolled = isEnrolledInWishlist || isEnrolledInLocal;
-
-  // xu ly click dang ky hoc
+  // Enroll — POST /api/enrollments (đúng endpoint)
   const handleEnroll = async () => {
     if (!isAuthenticated) {
-      // chua login thi bay sang trang login lien
       router.push(`/login?redirect=/courses/${slug}`);
       return;
     }
 
-    if (enrolled) {
-      // neu dang ky roi thi cuon xuong chuong trinh hoc de xem luon
-      const el = document.getElementById("curriculum-section");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth" });
+    if (isEnrolled) {
+      document.getElementById("curriculum-section")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    if (!courseData?.id) return;
+    setIsSaving(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/enrollments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ courseId: courseData.id }),
+      });
+
+      const body = await res.json().catch(() => null) as { message?: string } | null;
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast.error("Phiên đăng nhập hết hạn", "Vui lòng đăng nhập lại để đăng ký khóa học.");
+          router.push(`/login?redirect=/courses/${slug}`);
+          return;
+        }
+
+        if (res.status === 403) {
+          toast.error(
+            "Không thể đăng ký khóa học",
+            "Chỉ tài khoản học viên mới được đăng ký khóa học."
+          );
+          return;
+        }
+
+        throw new Error(body?.message ?? "Lỗi đăng ký khóa học");
       }
+
+      const updatedLocal = [...localEnrolled, courseData.id];
+      setLocalEnrolled(updatedLocal);
+      localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
+
+      toast.success("Đăng ký khóa học thành công", "Đang chuyển bạn về dashboard học viên.");
+      router.push("/dashboard/student");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Lỗi kết nối server";
+      console.warn("Enroll API failed, saving locally:", message);
+
+      // Offline fallback
+      const updatedLocal = [...localEnrolled, courseData.id];
+      setLocalEnrolled(updatedLocal);
+      localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
+
+      toast.warning("Đã lưu đăng ký ở chế độ offline", "Backend chưa phản hồi, dashboard vẫn có dữ liệu demo.");
+      router.push("/dashboard/student");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Wishlist toggle — POST /api/wishlists/course/{id} hoặc DELETE /api/wishlists/courses/{id}
+  const handleWishlistToggle = async () => {
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/courses/${slug}`);
       return;
     }
 
     if (!courseData?.id) return;
 
+    const method = isInWishlist ? "DELETE" : "POST";
+    const url = isInWishlist
+      ? `${API_BASE_URL}/api/wishlists/courses/${courseData.id}`
+      : `${API_BASE_URL}/api/wishlists/course/${courseData.id}`;
+
     try {
-      const res = await fetch(`http://localhost:8080/api/wishlists/course/${courseData.id}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const body = await res.json().catch(() => null);
-
       if (!res.ok) {
-        throw new Error(body?.message || "Loi goi API dang ky");
+        const body = await res.json().catch(() => null) as { message?: string } | null;
+        throw new Error(body?.message ?? "Lỗi wishlist");
       }
 
-      alert("Đăng ký khóa học thành công!");
-
-      // dong bo local luon cho chac
-      const updatedLocal = [...localEnrolled, courseData.id];
-      setLocalEnrolled(updatedLocal);
-      localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
-
       mutateWishlist();
-      router.push("/dashboard");
-    } catch (err: any) {
-      console.warn("API error, saving to local instead: ", err.message);
-      // fallback luu local cho nguoi dung test muot ma
-      const updatedLocal = [...localEnrolled, courseData.id];
-      setLocalEnrolled(updatedLocal);
-      localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Lỗi kết nối";
+      toast.error("Không thể cập nhật wishlist", message);
+    }
+  };
 
-      alert("Đăng ký khóa học thành công (Offline Mode)!");
-      router.push("/dashboard");
+  const startEditReview = (review: Review) => {
+    setEditingReviewId(review.id);
+    setEditingReviewText(review.reviewText ?? review.comment ?? "");
+    setEditingReviewRating(review.rating);
+  };
+
+  const cancelEditReview = () => {
+    setEditingReviewId(null);
+    setEditingReviewText("");
+    setEditingReviewRating(5);
+  };
+
+  const handleUpdateReview = async (reviewId: string) => {
+    if (!courseId) return;
+
+    const trimmedReview = editingReviewText.trim();
+    if (trimmedReview.length < 10) {
+      toast.warning("Đánh giá quá ngắn", "Vui lòng viết ít nhất 10 ký tự.");
+      return;
+    }
+
+    setReviewActionId(reviewId);
+    try {
+      await apiFetch(`/api/courses/${courseId}/reviews/${reviewId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          rating: editingReviewRating,
+          reviewText: trimmedReview,
+        }),
+      });
+      toast.success("Đã cập nhật đánh giá");
+      cancelEditReview();
+      await mutateReviews();
+    } catch (err: unknown) {
+      toast.error("Không thể cập nhật đánh giá", err instanceof Error ? err.message : undefined);
+    } finally {
+      setReviewActionId(null);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!courseId) return;
+    const confirmed = window.confirm("Xóa đánh giá này?");
+    if (!confirmed) return;
+
+    setReviewActionId(reviewId);
+    try {
+      await apiFetch(`/api/courses/${courseId}/reviews/${reviewId}`, {
+        method: "DELETE",
+      });
+      toast.success("Đã xóa đánh giá");
+      if (editingReviewId === reviewId) cancelEditReview();
+      await mutateReviews();
+    } catch (err: unknown) {
+      toast.error("Không thể xóa đánh giá", err instanceof Error ? err.message : undefined);
+    } finally {
+      setReviewActionId(null);
     }
   };
 
@@ -478,19 +641,20 @@ export default function CourseDetailPage({
     );
   }
 
-  // dem so luong chuong, bai hoc va thoi gian
-  const totalChapters = courseData?.curriculum?.length || 0;
-  const totalLessons = courseData?.curriculum?.reduce((sum, ch) => sum + ch.lessons.length, 0) || 0;
-  const totalDuration = courseData?.curriculum?.reduce((sum, ch) => {
-    return sum + ch.lessons.reduce((sub, les) => sub + (les.duration || 0), 0);
-  }, 0) || 0;
+  const totalChapters = courseData?.curriculum?.length ?? 0;
+  const totalLessons =
+    courseData?.curriculum?.reduce((sum, ch) => sum + ch.lessons.length, 0) ?? 0;
+  const totalDuration =
+    courseData?.curriculum?.reduce((sum, ch) => {
+      return sum + ch.lessons.reduce((sub, les) => sub + (les.duration ?? 0), 0);
+    }, 0) ?? 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900">
       <Header />
 
       <main className="flex-grow pb-16">
-        {/* banner khoa hoc */}
+        {/* Hero banner */}
         <div className="bg-primary text-white py-12 md:py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-2 mb-4 text-white/80 text-sm">
@@ -519,20 +683,21 @@ export default function CourseDetailPage({
                   {courseData?.shortDescription}
                 </p>
 
-                {/* Rating & Stats */}
                 <div className="flex flex-wrap items-center gap-6 pt-2 text-sm">
                   <div className="flex items-center gap-1 text-amber-300">
                     <Star className="w-5 h-5 fill-current" />
                     <span className="font-bold text-white text-base">
-                      {courseData?.avgRating || 4.7}
+                      {courseData?.avgRating ?? 4.7}
                     </span>
                     <span className="text-white/70">
-                      ({courseData?.totalStudents || 350} học viên học tập)
+                      ({courseData?.totalStudents ?? 350} học viên học tập)
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Users className="w-5 h-5 text-white/70" />
-                    <span>Giảng viên: <strong>{courseData?.instructorName || "St3pLearn Team"}</strong></span>
+                    <span>
+                      Giảng viên: <strong>{courseData?.instructorName ?? "St3pLearn Team"}</strong>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -540,12 +705,12 @@ export default function CourseDetailPage({
           </div>
         </div>
 
-        {/* thong tin chi tiet khoa hoc */}
+        {/* Main content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            {/* phan ben trai: mo ta va chuong hoc */}
+            {/* Left: description, curriculum, reviews */}
             <div className="lg:col-span-2 space-y-10">
-              {/* mo ta khoa hoc */}
+              {/* Course description */}
               <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-soft">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Giới thiệu khóa học</h2>
                 <div className="prose text-gray-600 leading-relaxed max-w-none">
@@ -553,8 +718,11 @@ export default function CourseDetailPage({
                 </div>
               </div>
 
-              {/* danh sach chuong/bai hoc */}
-              <div id="curriculum-section" className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-soft">
+              {/* Curriculum */}
+              <div
+                id="curriculum-section"
+                className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-soft"
+              >
                 <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">Nội dung chương trình học</h2>
@@ -564,7 +732,6 @@ export default function CourseDetailPage({
                   </div>
                 </div>
 
-                {/* accordion cac chuong hoc */}
                 {courseData && (
                   <ChapterAccordion
                     curriculum={courseData.curriculum}
@@ -574,10 +741,186 @@ export default function CourseDetailPage({
                   />
                 )}
               </div>
+
+              {/* Reviews - GET /api/courses/p/{courseId}/reviews */}
+              <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-soft">
+                <div className="mb-6 space-y-4">
+                  <h2 className="text-2xl font-bold text-gray-900">Đánh giá từ học viên</h2>
+                  {course?.id ? (
+                    <ReviewForm
+                      courseId={course.id}
+                      courseSlug={slug}
+                      onSubmitted={() => mutateReviews()}
+                    />
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-sm font-semibold text-gray-500">
+                      Form đánh giá chỉ bật khi khóa học được tải từ backend.
+                    </div>
+                  )}
+                </div>
+
+                {reviewsLoading && (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                    <span>Đang tải đánh giá...</span>
+                  </div>
+                )}
+
+                {!reviewsLoading && reviews.length === 0 && (
+                  <div className="text-center py-10">
+                    <BookOpen className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm font-medium">
+                      Chưa có đánh giá nào cho khóa học này.
+                    </p>
+                    <p className="text-gray-300 text-xs mt-1">
+                      Hãy là người đầu tiên chia sẻ trải nghiệm!
+                    </p>
+                  </div>
+                )}
+
+                {reviews.length > 0 && (
+                  <div className="space-y-5">
+                    {reviews.map((review: Review) => {
+                      const reviewBody = review.reviewText ?? review.comment;
+                      const reviewerName =
+                        review.authorName ??
+                        (review.studentId ? `Học viên ${review.studentId.slice(0, 8)}` : "Ẩn danh");
+                      const isOwnReview = Boolean(user?.id && review.studentId === user.id);
+                      const isEditing = editingReviewId === review.id;
+                      const isReviewBusy = reviewActionId === review.id;
+
+                      return (
+                        <div
+                          key={review.id}
+                          className="flex gap-4 pb-5 border-b border-gray-50 last:border-0"
+                        >
+                          <div className="flex-shrink-0">
+                            {review.authorAvatarUrl ? (
+                              <img
+                                src={review.authorAvatarUrl}
+                                alt={reviewerName}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-primary font-bold text-sm">
+                                {reviewerName[0].toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-900 text-sm">
+                                {reviewerName}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {isOwnReview && !isEditing && (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditReview(review)}
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-100 bg-gray-50 text-gray-500 transition hover:text-primary"
+                                      title="Sửa đánh giá"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteReview(review.id)}
+                                      disabled={isReviewBusy}
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+                                      title="Xóa đánh giá"
+                                    >
+                                      {isReviewBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                    </button>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-0.5">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3.5 h-3.5 ${
+                                      i < review.rating
+                                        ? "fill-amber-400 stroke-amber-400"
+                                        : "fill-gray-200 stroke-gray-200"
+                                    }`}
+                                  />
+                                ))}
+                                </div>
+                              </div>
+                            </div>
+                            {isEditing ? (
+                              <div className="mt-3 space-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                                <div className="flex items-center gap-1">
+                                  {Array.from({ length: 5 }).map((_, index) => {
+                                    const value = index + 1;
+                                    const active = value <= editingReviewRating;
+                                    return (
+                                      <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => setEditingReviewRating(value)}
+                                        className="rounded-lg p-1 transition hover:bg-white"
+                                        title={`${value} sao`}
+                                      >
+                                        <Star
+                                          className={`h-5 w-5 ${
+                                            active ? "fill-amber-400 stroke-amber-400" : "fill-gray-200 stroke-gray-200"
+                                          }`}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <textarea
+                                  value={editingReviewText}
+                                  onChange={(event) => setEditingReviewText(event.target.value)}
+                                  rows={3}
+                                  disabled={isReviewBusy}
+                                  className="w-full resize-none rounded-xl border border-gray-200 bg-white p-3 text-sm text-gray-700 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditReview}
+                                    disabled={isReviewBusy}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-xs font-extrabold text-gray-500 hover:bg-white disabled:opacity-60"
+                                  >
+                                    <X className="h-4 w-4" />
+                                    Hủy
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateReview(review.id)}
+                                    disabled={isReviewBusy || editingReviewText.trim().length < 10}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-extrabold text-white shadow-md shadow-pink-100 disabled:opacity-60"
+                                  >
+                                    {isReviewBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Lưu
+                                  </button>
+                                </div>
+                              </div>
+                            ) : reviewBody && (
+                              <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                                {reviewBody}
+                              </p>
+                            )}
+                            {review.createdAt && (
+                              <span className="text-xs text-gray-400 mt-1 block">
+                                {new Date(review.createdAt).toLocaleDateString("vi-VN")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* cot ben phai: dang ky hoc */}
-            <div className="lg:col-span-1">
+            {/* Right: checkout + wishlist */}
+            <div className="lg:col-span-1 space-y-4">
               {courseData && (
                 <CourseCheckoutCard
                   courseData={courseData}
@@ -585,15 +928,34 @@ export default function CourseDetailPage({
                   totalLessons={totalLessons}
                   handleEnroll={handleEnroll}
                   setActivePreviewVideo={setActivePreviewVideo}
-                  enrolled={enrolled}
+                  enrolled={isEnrolled}
                 />
               )}
+
+              {/* Wishlist toggle button */}
+              <button
+                id="wishlist-toggle-btn"
+                onClick={handleWishlistToggle}
+                disabled={isSaving}
+                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer disabled:opacity-50 ${
+                  isInWishlist
+                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-primary hover:text-primary"
+                }`}
+              >
+                <Heart
+                  className={`w-4 h-4 transition-all ${
+                    isInWishlist ? "fill-red-500 stroke-red-500" : ""
+                  }`}
+                />
+                {isInWishlist ? "Đã thêm vào Wishlist" : "Thêm vào Wishlist"}
+              </button>
             </div>
           </div>
         </div>
       </main>
 
-      {/* modal phat video xem thu */}
+      {/* Video preview modal */}
       <VideoModal
         activePreviewVideo={activePreviewVideo}
         onClose={() => setActivePreviewVideo(null)}
