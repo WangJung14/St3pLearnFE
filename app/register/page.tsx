@@ -1,8 +1,14 @@
 "use client";
-import { Eye, EyeOff, BookOpen } from "lucide-react";
+import { Eye, EyeOff, BookOpen, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { GuestGuard } from "@/components/guards/GuestGuard";
+import { useToast } from "@/components/ui/Toast";
+import { registerSchema, toFieldErrors, type FieldErrors } from "@/lib/validations";
+
+type RegisterField = "fullName" | "username" | "email" | "password" | "retypePassword";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,237 +19,297 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [retypePassword, setRetypePassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors<RegisterField>>({});
 
+  const router = useRouter();
+  const { register } = useAuth();
+  const toast = useToast();
+
+  const inputClassName = (field: RegisterField) =>
+    `w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all bg-white ${
+      fieldErrors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+    }`;
+
+  // Xử lý đăng ký tài khoản mới qua AuthContext
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+    setFieldErrors({});
 
-    if (password !== retypePassword) {
-      alert("Mật khẩu nhập lại không khớp!");
+    const parsed = registerSchema.safeParse({
+      fullName,
+      username,
+      email,
+      password,
+      retypePassword,
+    });
+
+    if (!parsed.success) {
+      setFieldErrors(toFieldErrors<RegisterField>(parsed.error));
+      setErrorMessage(parsed.error.issues[0]?.message ?? "Thông tin đăng ký chưa hợp lệ.");
+      toast.warning("Thông tin đăng ký chưa hợp lệ", parsed.error.issues[0]?.message);
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          username,
-          password,
-          fullName,
-        }),
+      const result = await register({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        username: parsed.data.username,
+        fullName: parsed.data.fullName,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        console.log("Registration successful", data);
-        alert("Đăng ký thành công! Hãy đăng nhập bằng tài khoản mới.");
+      if (result.success) {
+        toast.success("Đăng ký thành công", "Hãy đăng nhập bằng tài khoản mới.");
         router.push("/login");
       } else {
-        const errorData = await res.json().catch(() => null);
-        alert(
-          `Đăng ký thất bại: ${errorData?.message || "Vui lòng kiểm tra lại thông tin"}`
-        );
+        const message = result.message ?? "Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.";
+        setErrorMessage(message);
+        toast.error("Đăng ký thất bại", message);
       }
-    } catch (error) {
-      console.error("Registration error:", error);
-      alert("Có lỗi xảy ra khi kết nối tới máy chủ!");
+    } catch {
+      setErrorMessage("Có lỗi xảy ra khi kết nối tới máy chủ!");
+      toast.error("Không kết nối được máy chủ", "Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Left Side - Visual/Branding (Hidden on mobile) */}
-      <div className="hidden md:flex md:w-1/2 bg-primary flex-col justify-center items-center p-12 relative overflow-hidden">
-        {/* Background Image */}
-        <div
-          className="absolute inset-0 opacity-20 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop')",
-          }}
-        />
-        <div className="absolute inset-0 bg-primary/60" />
+    <GuestGuard>
+      <div className="flex min-h-screen bg-gray-50 text-gray-900">
+        {/* Cột bên trái - Quảng bá thương hiệu (Ẩn trên màn hình di động) */}
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/95 to-secondary flex-col justify-center items-center p-12 relative overflow-hidden">
+          {/* Vòng tròn phát sáng tạo hiệu ứng chiều sâu cao cấp */}
+          <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="relative z-10 text-white text-center space-y-6 max-w-[512px]">
-          <div className="flex justify-center mb-8">
-            <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm">
-              <BookOpen className="w-16 h-16 text-white/80" />
+          {/* Hình ảnh nền nhẹ */}
+          <div
+            className="absolute inset-0 opacity-10 bg-cover bg-center bg-blend-overlay pointer-events-none"
+            style={{
+              backgroundImage:
+                "url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2071&auto=format&fit=crop')",
+            }}
+          />
+
+          <div className="relative z-10 text-white text-center space-y-8 max-w-lg">
+            <div className="flex justify-center">
+              {/* Hộp biểu tượng kính mờ (Glassmorphism) cực chất */}
+              <div className="bg-white/10 p-6 rounded-3xl backdrop-blur-md border border-white/20 shadow-xl flex items-center justify-center animate-pulse">
+                <BookOpen className="w-16 h-16 text-white" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h1 className="text-5xl font-black tracking-tight flex items-center justify-center gap-2">
+                EduMastery
+              </h1>
+              <p className="text-lg text-white/95 leading-relaxed font-medium">
+                Bắt đầu hành trình học tập đột phá cùng EduMastery. Hàng ngàn bài học chất lượng đang chờ đón bạn khám phá.
+              </p>
+            </div>
+
+            {/* Dòng chứng thực uy tín của nền tảng */}
+            <div className="pt-6 flex justify-center gap-6 text-2xs font-extrabold uppercase tracking-widest text-white/80">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4" /> Chứng chỉ có giá trị
+              </span>
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-4 h-4" /> Hệ thống Gamification thú vị
+              </span>
             </div>
           </div>
-          <h1 className="text-5xl font-extrabold tracking-tight">St3pLearn</h1>
-          <p className="text-xl text-white/80 font-medium leading-relaxed">
-            Bắt đầu hành trình học tập cùng St3pLearn. Hàng ngàn khóa học chất
-            lượng đang chờ đón bạn.
-          </p>
         </div>
-      </div>
 
-      {/* Right Side - Form Area */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-8 md:px-16 lg:px-24 bg-white">
-        <div className="w-full max-w-112 space-y-8">
-          <div className="text-center md:text-left space-y-2">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Create an account
-            </h2>
-            <p className="text-gray-500">
-              Bắt đầu hành trình học tập cùng St3pLearn.
+        {/* Cột bên phải - Khu vực Form nhập liệu đăng ký */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 md:p-16 lg:p-24 bg-gray-50">
+          <div className="w-full max-w-[480px] bg-white rounded-3xl border border-gray-100 shadow-soft p-8 sm:p-10 space-y-6">
+            <div className="text-center md:text-left space-y-2">
+              <h2 className="text-3xl font-black text-gray-950 tracking-tight">Tạo tài khoản mới</h2>
+              <p className="text-xs text-gray-500 font-medium">
+                Bắt đầu hành trình nâng tầm ngoại ngữ của bạn cùng EduMastery ngay hôm nay.
+              </p>
+            </div>
+
+            {/* Error message */}
+            {errorMessage && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700 font-medium">
+                {errorMessage}
+              </div>
+            )}
+
+            <form className="space-y-5" onSubmit={handleRegister}>
+              <div className="space-y-4">
+                {/* Dòng 1: Họ tên & Tên đăng nhập */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="fullname"
+                      className="block text-2xs font-extrabold uppercase text-gray-400 tracking-wider"
+                    >
+                      Họ và Tên
+                    </label>
+                    <input
+                      id="fullname"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Nguyen Van A"
+                      aria-invalid={Boolean(fieldErrors.fullName)}
+                      className={inputClassName("fullName")}
+                      required
+                    />
+                    {fieldErrors.fullName && (
+                      <p className="text-3xs font-bold text-red-500">{fieldErrors.fullName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="username"
+                      className="block text-2xs font-extrabold uppercase text-gray-400 tracking-wider"
+                    >
+                      Tên đăng nhập
+                    </label>
+                    <input
+                      id="username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="nguyenvana123"
+                      aria-invalid={Boolean(fieldErrors.username)}
+                      className={inputClassName("username")}
+                      required
+                      minLength={4}
+                    />
+                    {fieldErrors.username && (
+                      <p className="text-3xs font-bold text-red-500">{fieldErrors.username}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dòng 2: Địa chỉ Email */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="email"
+                    className="block text-2xs font-extrabold uppercase text-gray-400 tracking-wider"
+                  >
+                    Địa chỉ Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    className={inputClassName("email")}
+                    required
+                  />
+                  {fieldErrors.email && (
+                    <p className="text-3xs font-bold text-red-500">{fieldErrors.email}</p>
+                  )}
+                </div>
+
+                {/* Dòng 3: Mật khẩu & Nhập lại mật khẩu */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="password"
+                      className="block text-2xs font-extrabold uppercase text-gray-400 tracking-wider"
+                    >
+                      Mật khẩu
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        aria-invalid={Boolean(fieldErrors.password)}
+                        className={inputClassName("password")}
+                        required
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    {fieldErrors.password && (
+                      <p className="text-3xs font-bold text-red-500">{fieldErrors.password}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="retype-password"
+                      className="block text-2xs font-extrabold uppercase text-gray-400 tracking-wider"
+                    >
+                      Nhập lại mật khẩu
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="retype-password"
+                        type={showRetypePassword ? "text" : "password"}
+                        value={retypePassword}
+                        onChange={(e) => setRetypePassword(e.target.value)}
+                        placeholder="••••••••"
+                        aria-invalid={Boolean(fieldErrors.retypePassword)}
+                        className={inputClassName("retypePassword")}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRetypePassword(!showRetypePassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                      >
+                        {showRetypePassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    {fieldErrors.retypePassword && (
+                      <p className="text-3xs font-bold text-red-500">{fieldErrors.retypePassword}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Nút gửi form đăng ký */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-95 text-white text-xs font-black py-3.5 rounded-xl shadow-md shadow-pink-200 transition-all transform active:scale-[0.99] disabled:opacity-50 flex items-center justify-center cursor-pointer mt-2"
+              >
+                {isLoading ? "Đang khởi tạo tài khoản..." : "Tạo Tài Khoản Học Viên"}
+              </button>
+            </form>
+
+            {/* Đường dẫn sang trang đăng nhập */}
+            <p className="text-center text-xs font-bold text-gray-500">
+              Đã có tài khoản thành viên?{" "}
+              <Link
+                href="/login"
+                className="text-primary hover:opacity-85 transition-opacity"
+              >
+                Đăng nhập ngay
+              </Link>
             </p>
           </div>
-
-          <form className="space-y-6" onSubmit={handleRegister}>
-            <div className="space-y-4">
-              {/* Row 1: Full Name & Username */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="fullname"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    id="fullname"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Nguyen Van A"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="username"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Username
-                  </label>
-                  <input
-                    id="username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="nguyenvana123"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Email */}
-              <div className="space-y-2">
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                  required
-                />
-              </div>
-
-              {/* Row 3: Password & Retype Password */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="retype-password"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Retype Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="retype-password"
-                      type={showRetypePassword ? "text" : "password"}
-                      value={retypePassword}
-                      onChange={(e) => setRetypePassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowRetypePassword(!showRetypePassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                    >
-                      {showRetypePassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full mt-2 bg-primary hover:bg-primary/90 text-white font-medium py-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-lg shadow-primary/20 disabled:opacity-50"
-            >
-              {isLoading ? "Creating Account..." : "Create Account"}
-            </button>
-          </form>
-
-          {/* Footer */}
-          <p className="text-center text-sm text-gray-600">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="font-semibold text-primary hover:opacity-80 hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
         </div>
       </div>
-    </div>
+    </GuestGuard>
   );
 }

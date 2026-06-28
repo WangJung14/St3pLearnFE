@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
+
 interface FooterLink {
   label: string;
   href: string;
@@ -10,65 +13,62 @@ interface FooterSection {
 
 const footerSections: FooterSection[] = [
   {
-    title: 'Product',
+    title: "Learn",
     links: [
-      { label: 'Courses', href: '#' },
-      { label: 'Pricing', href: '#' },
+      { label: "Courses", href: "/courses" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Community", href: "/forum" },
     ],
   },
   {
-    title: 'Categories',
+    title: "Account",
     links: [
-      { label: 'Technology', href: '#' },
-      { label: 'Business', href: '#' },
+      { label: "Login", href: "/login" },
+      { label: "Register", href: "/register" },
+      { label: "Dashboard", href: "/dashboard" },
     ],
   },
   {
-    title: 'Support',
+    title: "Support",
     links: [
-      { label: 'Help Center', href: '#' },
-      { label: 'Contact', href: '#' },
-    ],
-  },
-  {
-    title: 'Legal',
-    links: [
-      { label: 'Privacy', href: '#' },
-      { label: 'Terms', href: '#' },
+      { label: "Chat", href: "/chat" },
+      { label: "Forum", href: "/forum" },
     ],
   },
 ];
 
 export default function Footer() {
   return (
-    <footer className="w-full rounded-t-xl bg-surface-container mt-xl">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-lg px-lg py-xl max-w-container-max mx-auto">
-        {/* Brand Section */}
-        <div className="col-span-2 md:col-span-4 lg:col-span-2 space-y-4">
-          <div className="text-headline-md font-headline-md font-bold text-on-surface">
-            EduMastery
-          </div>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            © 2024 EduMastery. Empowering professional growth through expert-led
-            education.
+    <footer className="w-full border-t border-gray-100 bg-white">
+      <div className="site-container grid grid-cols-1 gap-8 py-10 md:grid-cols-4">
+        <div className="space-y-3 md:col-span-1">
+          <Link href="/" className="inline-flex items-center gap-2 text-lg font-black text-primary">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-secondary text-white shadow-sm shadow-pink-100">
+              <BookOpen className="h-5 w-5" />
+            </span>
+            St3pLearn
+          </Link>
+          <p className="site-copy text-sm font-medium leading-relaxed text-gray-500">
+            English learning platform for courses, practice, progress, and community.
           </p>
         </div>
 
-        {/* Footer Links Sections */}
-        {footerSections.map((section, sectionIndex) => (
-          <div key={sectionIndex} className="flex flex-col gap-2">
-            <span className="font-label-md text-label-md text-primary font-semibold mb-2">
+        {footerSections.map((section) => (
+          <div key={section.title} className="space-y-3">
+            <h3 className="text-xs font-black uppercase tracking-wider text-gray-900">
               {section.title}
-            </span>
-            {section.links.map((link, linkIndex) => (
-              <a
-                key={linkIndex}
-                className="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors"
-                href={link.href}
-              >
-                {link.label}
-              </a>
-            ))}
+            </h3>
+            <nav className="grid gap-2">
+              {section.links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-semibold text-gray-500 transition-colors hover:text-primary"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
           </div>
         ))}
       </div>

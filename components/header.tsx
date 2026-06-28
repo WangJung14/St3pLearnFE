@@ -1,52 +1,111 @@
 "use client";
 
-import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
-import { BookOpen, LogOut, User } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Bell, BookOpen, ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { getRoleFromToken, getRoleHomePath } from "@/lib/roleRoutes";
 
 export default function Header() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, token, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const navLinks = isAuthenticated
-    ? [
-        { label: 'Courses', href: '/courses' },
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: 'Live Classes', href: '#' },
-        { label: 'Community', href: '#' },
-      ]
-    : [
-        { label: 'Courses', href: '/courses' },
-        { label: 'Live Classes', href: '#' },
-        { label: 'Community', href: '#' },
-        { label: 'About', href: '#' },
-      ];
+  const currentRole = getRoleFromToken(token) ?? user?.role ?? "STUDENT";
+  const dashboardHref = getRoleHomePath(currentRole);
+  const displayName = user?.fullName || user?.username || user?.email || "Học viên";
+  const userInitial =
+    user?.fullName?.substring(0, 1) || user?.username?.substring(0, 1) || "H";
+
+  useEffect(() => {
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowUserMenu(false);
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const mockNotifications = [
+    {
+      id: 1,
+      text: "Bài tập Writing Task 2 của bạn đã được Mentor nhận xét.",
+      time: "10 phút trước",
+    },
+    {
+      id: 2,
+      text: "Khóa học IELTS Masterclass 7.5+ có chương học mới.",
+      time: "2 giờ trước",
+    },
+    {
+      id: 3,
+      text: "Chúc mừng! Bạn đã đạt chuỗi 5 ngày học liên tiếp.",
+      time: "1 ngày trước",
+    },
+  ];
+
+  const navLinks = [
+    { label: "Khóa Học", href: "/courses" },
+    { label: "Bảng Giá", href: "/pricing" },
+    { label: "Cộng Đồng", href: "/forum" },
+    { label: "Trò Chuyện", href: "/chat" },
+  ];
+
+  if (isAuthenticated) {
+    navLinks.unshift({ label: "Học Tập", href: dashboardHref });
+  }
+
+  const handleLogout = () => {
+    setShowMobileMenu(false);
+    setShowNotifications(false);
+    setShowUserMenu(false);
+    logout();
+  };
 
   return (
-    <header className="sticky top-0 w-full shadow-md bg-surface-container-lowest z-50 border-b border-gray-100">
-      <div className="flex justify-between items-center w-full px-lg max-w-container-max mx-auto h-20">
-        {/* Logo & Navigation */}
+    <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 shadow-sm backdrop-blur-md">
+      <div className="site-container flex h-20 items-center justify-between">
         <div className="flex items-center gap-8">
           <Link
-            className="text-headline-md font-headline-md font-extrabold text-primary flex items-center gap-2 hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 text-2xl font-black text-primary transition-opacity hover:opacity-90"
             href="/"
           >
-            <div className="bg-primary/10 p-2 rounded-xl">
-              <BookOpen className="w-6 h-6 text-primary" />
+            <div className="rounded-xl bg-gradient-to-tr from-primary to-secondary p-2 text-white shadow-md shadow-pink-200">
+              <BookOpen className="h-6 w-6" />
             </div>
-            <span>St3pLearn</span>
+            <span className="hidden bg-gradient-to-r from-primary to-secondary bg-clip-text tracking-tight text-transparent sm:inline">
+              EduMastery
+            </span>
           </Link>
-          <nav className="hidden md:flex gap-6">
-            {navLinks.map((link, index) => {
+
+          <nav className="hidden gap-4 md:flex">
+            {navLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <Link
-                  key={index}
-                  className={`font-body-md text-body-md transition-all py-1 px-2 rounded-md ${
+                  key={link.href}
+                  className={`rounded-xl px-3.5 py-2 text-sm font-bold transition-all ${
                     isActive
-                      ? 'text-primary font-bold bg-primary/5'
-                      : 'text-secondary hover:text-primary hover:bg-gray-50'
+                      ? "bg-pink-50 text-primary"
+                      : "text-gray-500 hover:bg-gray-50 hover:text-primary"
                   }`}
                   href={link.href}
                 >
@@ -57,39 +116,243 @@ export default function Header() {
           </nav>
         </div>
 
-        {/* Auth Buttons / Profile info */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {isAuthenticated ? (
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
-                <div className="bg-primary text-white p-1 rounded-full">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-sm font-semibold text-gray-800">
-                  {user?.fullName || user?.username}
-                </span>
+            <div className="relative flex items-center gap-2 sm:gap-3">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNotifications((value) => !value);
+                    setShowUserMenu(false);
+                  }}
+                  className="relative rounded-xl p-2.5 text-gray-500 transition-all hover:bg-gray-100 hover:text-primary"
+                  aria-label="Mở thông báo"
+                >
+                  <Bell className="h-5 w-5" />
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
+                </button>
+
+                {showNotifications && (
+                  <div className="animate-fade-in absolute right-0 z-50 mt-2 w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 bg-white py-3 shadow-xl sm:w-80">
+                    <div className="flex items-center justify-between border-b border-gray-50 px-4 pb-2">
+                      <span className="text-sm font-bold text-gray-900">Thông báo</span>
+                      <button
+                        type="button"
+                        className="text-2xs font-bold text-primary hover:underline"
+                      >
+                        Đánh dấu đã đọc
+                      </button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {mockNotifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="cursor-pointer border-b border-gray-50 px-4 py-3 transition-colors last:border-0 hover:bg-gray-50"
+                        >
+                          <p className="line-clamp-2 text-xs font-semibold text-gray-800">
+                            {notification.text}
+                          </p>
+                          <span className="mt-1 block text-2xs text-gray-400">
+                            {notification.time}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+
+              <div ref={userMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserMenu((value) => !value);
+                    setShowNotifications(false);
+                  }}
+                  className="flex items-center gap-2 rounded-full border border-gray-100 bg-gray-50 p-1 transition hover:border-pink-100 hover:bg-pink-50 sm:pl-2 sm:pr-3"
+                  aria-label="Mở menu tài khoản"
+                  aria-expanded={showUserMenu}
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white bg-gradient-to-br from-primary to-secondary text-xs font-extrabold uppercase text-white shadow-sm">
+                    {userInitial}
+                  </span>
+                  <span className="hidden max-w-[120px] truncate text-xs font-bold text-gray-700 lg:block">
+                    {displayName}
+                  </span>
+                  <ChevronDown
+                    className={`hidden h-4 w-4 text-gray-400 transition sm:block ${
+                      showUserMenu ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {showUserMenu && (
+                  <div className="animate-fade-in absolute right-0 z-50 mt-3 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl sm:w-72">
+                    <div className="border-b border-gray-50 bg-gray-50/70 px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-sm font-black uppercase text-white">
+                          {userInitial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-extrabold text-gray-900">
+                            {displayName}
+                          </p>
+                          <p className="mt-0.5 text-2xs font-extrabold uppercase tracking-wider text-gray-400">
+                            {currentRole}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2">
+                      <Link
+                        href={dashboardHref}
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-pink-50 hover:text-primary"
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
+                      </Link>
+                      <Link
+                        href={dashboardHref}
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 hover:text-gray-950"
+                      >
+                        <UserCircle className="h-4 w-4" />
+                        Hồ sơ tài khoản
+                      </Link>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-gray-400"
+                        title="Trang cài đặt riêng chưa được triển khai"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Cài đặt
+                        <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-4xs font-black uppercase text-gray-400">
+                          Soon
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="border-t border-gray-50 p-2">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-extrabold text-red-600 transition hover:bg-red-50"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Đăng xuất
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
-                onClick={logout}
-                className="flex items-center gap-1.5 font-label-md text-label-md text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-red-200 transition-all cursor-pointer"
+                type="button"
+                onClick={handleLogout}
+                className="hidden rounded-xl p-2.5 text-red-500 transition-all hover:bg-red-50 hover:text-red-700 sm:inline-flex"
+                title="Đăng xuất"
+                aria-label="Đăng xuất"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <LogOut className="h-5 w-5" />
               </button>
             </div>
           ) : (
-            <>
-              <Link href="/login" className="font-label-md text-label-md text-secondary hover:text-primary transition-colors">
-                Login
+            <div className="hidden items-center gap-4 sm:flex">
+              <Link
+                href="/login"
+                className="text-sm font-bold text-gray-500 transition-colors hover:text-primary"
+              >
+                Đăng nhập
               </Link>
-              <Link href="/register" className="font-label-md text-label-md bg-primary text-on-primary px-6 py-2 rounded-lg shadow-sm hover:bg-primary-container transition-all">
-                Register
+              <Link
+                href="/register"
+                className="rounded-xl bg-gradient-to-r from-primary to-secondary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-pink-200 transition-all hover:opacity-95 active:scale-95"
+              >
+                Đăng ký
               </Link>
-            </>
+            </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowMobileMenu((value) => !value);
+              setShowNotifications(false);
+              setShowUserMenu(false);
+            }}
+            className="inline-flex items-center justify-center rounded-xl border border-gray-100 bg-white p-2.5 text-gray-500 shadow-sm transition hover:text-primary md:hidden"
+            aria-label="Toggle mobile menu"
+            aria-expanded={showMobileMenu}
+          >
+            {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {showMobileMenu && (
+        <div className="border-t border-gray-100 bg-white px-4 py-4 shadow-sm md:hidden">
+          <nav className="grid gap-2">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setShowMobileMenu(false)}
+                  className={`rounded-xl px-4 py-3 text-sm font-extrabold transition ${
+                    isActive
+                      ? "bg-pink-50 text-primary"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-primary"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {isAuthenticated ? (
+            <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+              <div className="rounded-xl bg-gray-50 px-4 py-3">
+                <p className="truncate text-sm font-extrabold text-gray-800">
+                  {user?.fullName || user?.username || user?.email}
+                </p>
+                <p className="mt-1 text-2xs font-extrabold uppercase tracking-wider text-gray-400">
+                  Vai trò hiện tại: {currentRole}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-extrabold text-red-600"
+              >
+                <LogOut className="h-4 w-4" />
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+              <Link
+                href="/login"
+                onClick={() => setShowMobileMenu(false)}
+                className="rounded-xl border border-gray-100 px-4 py-3 text-center text-sm font-extrabold text-gray-600"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                href="/register"
+                onClick={() => setShowMobileMenu(false)}
+                className="rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-center text-sm font-extrabold text-white shadow-md shadow-pink-100"
+              >
+                Đăng ký
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }
-
