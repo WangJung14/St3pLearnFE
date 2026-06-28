@@ -16,6 +16,7 @@ interface EditProfileTabProps {
   isUpdating: boolean;
   handleUpdateProfile: (e: React.FormEvent) => void;
   cancelEdit: () => void;
+  validationError?: string;
 }
 
 export default function EditProfileTab({
@@ -32,6 +33,7 @@ export default function EditProfileTab({
   isUpdating,
   handleUpdateProfile,
   cancelEdit,
+  validationError,
 }: EditProfileTabProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-soft p-6 sm:p-8 max-w-3xl animate-fade-in">
@@ -39,6 +41,12 @@ export default function EditProfileTab({
         <Edit className="w-5 h-5 text-primary" />
         Thông tin cá nhân học viên
       </h2>
+
+      {validationError && (
+        <p className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-bold text-red-600">
+          {validationError}
+        </p>
+      )}
 
       <form onSubmit={handleUpdateProfile} className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
