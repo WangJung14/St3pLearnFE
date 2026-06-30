@@ -153,6 +153,14 @@
     width: min(calc(100vw - 2rem), 36rem);
   }
 
+  .auth-hero-copy {
+    max-width: 34rem;
+  }
+
+  .auth-form-card {
+    max-width: 30rem;
+  }
+
   .site-copy {
     max-width: 20rem;
   }
@@ -218,6 +226,14 @@
 
   .app-modal-panel {
     width: min(calc(100vw - 6rem), 1400px);
+  }
+
+  .auth-hero-copy {
+    max-width: 64rem;
+  }
+
+  .auth-form-card {
+    max-width: 42rem;
   }
 
   .site-copy {

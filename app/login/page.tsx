@@ -66,7 +66,7 @@ export default function LoginPage() {
     <GuestGuard>
     <div className="flex min-h-screen bg-gray-50 text-gray-900">
       {/* Cột bên trái - Quảng bá thương hiệu (Ẩn trên màn hình di động) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/95 to-secondary flex-col justify-center items-center p-12 relative overflow-hidden">
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-secondary p-12 lg:flex lg:w-1/2 lg:flex-col lg:items-center lg:justify-center min-[2400px]:p-24">
         {/* Vòng tròn phát sáng tạo hiệu ứng chiều sâu cao cấp */}
         <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-secondary/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -80,24 +80,24 @@ export default function LoginPage() {
           }}
         />
 
-        <div className="relative z-10 text-white text-center space-y-8 max-w-lg">
-          <div className="flex justify-center">
+        <div className="auth-hero-copy relative z-10 grid gap-8 text-center text-white min-[2400px]:grid-cols-[220px_minmax(0,1fr)] min-[2400px]:items-center min-[2400px]:text-left">
+          <div className="flex justify-center min-[2400px]:justify-start">
             {/* Hộp biểu tượng kính mờ (Glassmorphism) cực chất */}
             <div className="bg-white/10 p-6 rounded-3xl backdrop-blur-md border border-white/20 shadow-xl flex items-center justify-center animate-pulse">
               <BookOpen className="w-16 h-16 text-white" />
             </div>
           </div>
           <div className="space-y-4">
-            <h1 className="text-5xl font-black tracking-tight flex items-center justify-center gap-2">
+            <h1 className="flex items-center justify-center gap-2 text-5xl font-black tracking-tight min-[2400px]:justify-start min-[2400px]:text-6xl">
               EduMastery
             </h1>
-            <p className="text-lg text-white/95 leading-relaxed font-medium">
+            <p className="max-w-[62ch] text-lg font-medium leading-relaxed text-white/95 min-[2400px]:text-xl">
               Chinh phục tiếng Anh học thuật thông minh hơn với phương pháp lặp lại ngắt quãng và chấm điểm phát âm AI.
             </p>
           </div>
 
           {/* Dòng chứng thực uy tín của nền tảng */}
-          <div className="pt-6 flex justify-center gap-6 text-2xs font-extrabold uppercase tracking-widest text-white/80">
+          <div className="flex flex-wrap justify-center gap-4 pt-2 text-2xs font-extrabold uppercase tracking-widest text-white/80 min-[2400px]:col-span-2 min-[2400px]:justify-start min-[2400px]:gap-6">
             <span className="flex items-center gap-1">
               <ShieldCheck className="w-4 h-4" /> Bảo mật chuẩn quốc tế
             </span>
@@ -109,8 +109,8 @@ export default function LoginPage() {
       </div>
 
       {/* Cột bên phải - Khu vực Form nhập liệu */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 md:p-16 lg:p-24 bg-gray-50">
-        <div className="w-full max-w-[440px] bg-white rounded-3xl border border-gray-100 shadow-soft p-8 sm:p-10 space-y-8">
+      <div className="flex w-full items-center justify-center bg-gray-50 p-6 sm:p-12 md:p-16 lg:w-1/2 lg:p-24 min-[2400px]:p-28">
+        <div className="auth-form-card w-full rounded-3xl border border-gray-100 bg-white p-8 shadow-soft sm:p-10 space-y-8">
           <div className="text-center md:text-left space-y-2">
             <h2 className="text-3xl font-black text-gray-950 tracking-tight">Chào mừng trở lại</h2>
             <p className="text-xs text-gray-500 font-medium">
