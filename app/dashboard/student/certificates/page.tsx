@@ -36,7 +36,7 @@ export default function CertificatesPage() {
   };
 
   const handleShare = (cert: Certificate) => {
-    const verifyUrl = `https://edumastery.com/verify/${cert.credentialId}`;
+    const verifyUrl = `https://St3pLearn.com/verify/${cert.credentialId}`;
     navigator.clipboard?.writeText(verifyUrl).catch(() => null);
     toast.success("Đã sao chép link xác thực", verifyUrl);
   };
@@ -103,11 +103,11 @@ export default function CertificatesPage() {
                 <p className="text-sm text-gray-500 font-medium">Chứng nhận này được trân trọng trao cho</p>
                 
                 <h2 className="text-4xl font-black text-gray-900 border-b border-gray-100 pb-2 max-w-md mx-auto font-serif">
-                  {user?.fullName || "Học Viên EduMastery"}
+                  {user?.fullName || "Học Viên St3pLearn"}
                 </h2>
 
                 <p className="text-sm text-gray-500 leading-relaxed max-w-lg mx-auto">
-                  Vì đã hoàn thành xuất sắc khóa học chuyên ngành tiếng Anh học thuật trực tuyến tại hệ thống EduMastery:
+                  Vì đã hoàn thành xuất sắc khóa học chuyên ngành tiếng Anh học thuật trực tuyến tại hệ thống St3pLearn:
                   <strong className="block text-base text-amber-900 font-bold mt-2">"{activeCert.courseTitle}"</strong>
                 </p>
               </div>
@@ -125,11 +125,11 @@ export default function CertificatesPage() {
                     <Award className="w-10 h-10" />
                     <div className="absolute inset-2 border border-dashed border-white/50 rounded-full"></div>
                   </div>
-                  <span className="text-4xs text-amber-700 font-extrabold uppercase mt-2 block tracking-wider">EduMastery Seal</span>
+                  <span className="text-4xs text-amber-700 font-extrabold uppercase mt-2 block tracking-wider">St3pLearn Seal</span>
                 </div>
 
                 <div className="text-center space-y-1 border-t border-gray-150 pt-4">
-                  <span className="text-xs font-bold text-gray-800 block">EduMastery Board</span>
+                  <span className="text-xs font-bold text-gray-800 block">St3pLearn Board</span>
                   <span className="text-4xs text-gray-400 font-bold uppercase tracking-wider">Ban điều hành học viện</span>
                 </div>
               </div>

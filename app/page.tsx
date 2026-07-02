@@ -73,7 +73,7 @@ const TESTIMONIALS = [
     name: "Nguyễn Minh Thư",
     role: "Học viên IELTS 7.5",
     avatar: "M",
-    text: "EduMastery hoàn toàn thay đổi cách mình học tiếng Anh. Lộ trình học thông minh cùng tính năng flashcard lặp lại ngắt quãng giúp mình nhớ từ vựng cực kỳ lâu và sâu sắc.",
+    text: "St3pLearn hoàn toàn thay đổi cách mình học tiếng Anh. Lộ trình học thông minh cùng tính năng flashcard lặp lại ngắt quãng giúp mình nhớ từ vựng cực kỳ lâu và sâu sắc.",
   },
   {
     name: "Lê Quốc Anh",
@@ -91,8 +91,8 @@ const TESTIMONIALS = [
 
 const FAQS = [
   {
-    q: "Hệ thống EduMastery hoạt động như thế nào?",
-    a: "EduMastery kết hợp lộ trình học tập chuẩn học thuật quốc tế cùng các tính năng Gamification (chuỗi streaks, XP, huy hiệu) và phương pháp Spaced Repetition giúp học viên tối ưu hóa 200% hiệu suất ghi nhớ từ vựng và luyện tập phát âm trôi chảy.",
+    q: "Hệ thống St3pLearn hoạt động như thế nào?",
+    a: "St3pLearn kết hợp lộ trình học tập chuẩn học thuật quốc tế cùng các tính năng Gamification (chuỗi streaks, XP, huy hiệu) và phương pháp Spaced Repetition giúp học viên tối ưu hóa 200% hiệu suất ghi nhớ từ vựng và luyện tập phát âm trôi chảy.",
   },
   {
     q: "Tính năng Giả lập nói AI có nhận xét chi tiết phát âm không?",
@@ -104,7 +104,7 @@ const FAQS = [
   },
   {
     q: "Chính sách học thử và hoàn tiền như thế nào?",
-    a: "Chúng tôi cung cấp các bài giảng xem thử (Preview lessons) miễn phí ở mọi khóa học để bạn trải nghiệm trực quan trước khi đưa ra quyết định mua. EduMastery hỗ trợ chính sách hoàn trả học phí trong vòng 7 ngày nếu bạn không hài lòng.",
+    a: "Chúng tôi cung cấp các bài giảng xem thử (Preview lessons) miễn phí ở mọi khóa học để bạn trải nghiệm trực quan trước khi đưa ra quyết định mua. St3pLearn hỗ trợ chính sách hoàn trả học phí trong vòng 7 ngày nếu bạn không hài lòng.",
   },
 ];
 
@@ -131,7 +131,7 @@ export default function LandingPage() {
               variant="default"
               className="px-3 py-1 text-2xs font-extrabold shadow-sm"
             >
-              🚀 EduMastery 2.0 - Kỷ Nguyên Học Tiếng Anh Mới
+              🚀 St3pLearn 2.0 - Kỷ Nguyên Học Tiếng Anh Mới
             </Badge>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-gray-950">
               Làm chủ tiếng Anh học thuật{" "}
@@ -456,7 +456,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-xs md:text-sm text-gray-400 leading-relaxed font-medium">
               Khám phá trải nghiệm thực tế từ các học viên đã đạt mục tiêu IELTS
-              điểm cao và nâng tầm kỹ năng giao tiếp công việc cùng EduMastery.
+              điểm cao và nâng tầm kỹ năng giao tiếp công việc cùng St3pLearn.
             </p>
           </div>
 

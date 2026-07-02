@@ -103,10 +103,10 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-4">
               <h1 className="flex items-center justify-center gap-2 text-5xl font-black tracking-tight min-[2400px]:justify-start min-[2400px]:text-6xl">
-                EduMastery
+                St3pLearn
               </h1>
               <p className="max-w-[62ch] text-lg font-medium leading-relaxed text-white/95 min-[2400px]:text-xl">
-                Bắt đầu hành trình học tập đột phá cùng EduMastery. Hàng ngàn bài học chất lượng đang chờ đón bạn khám phá.
+                Bắt đầu hành trình học tập đột phá cùng St3pLearn. Hàng ngàn bài học chất lượng đang chờ đón bạn khám phá.
               </p>
             </div>
 
@@ -128,7 +128,7 @@ export default function RegisterPage() {
             <div className="text-center md:text-left space-y-2">
               <h2 className="text-3xl font-black text-gray-950 tracking-tight">Tạo tài khoản mới</h2>
               <p className="text-xs text-gray-500 font-medium">
-                Bắt đầu hành trình nâng tầm ngoại ngữ của bạn cùng EduMastery ngay hôm nay.
+                Bắt đầu hành trình nâng tầm ngoại ngữ của bạn cùng St3pLearn ngay hôm nay.
               </p>
             </div>
 

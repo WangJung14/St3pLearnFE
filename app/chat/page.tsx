@@ -38,7 +38,7 @@ const INITIAL_PARTNERS: ChatPartner[] = [
     name: "Mentor Alex",
     avatar: "A",
     role: "MENTOR",
-    bio: "Cố vấn chuyên môn EduMastery, chuyên ngành sư phạm tiếng Anh. Đồng hành định hướng lộ trình học tối ưu.",
+    bio: "Cố vấn chuyên môn St3pLearn, chuyên ngành sư phạm tiếng Anh. Đồng hành định hướng lộ trình học tối ưu.",
     lastMessage: "Em đã hoàn thành bài tập ngữ pháp Chương 1 chưa? Cố gắng giữ chuỗi nhé!",
     time: "Hôm qua",
     isOnline: true
@@ -228,7 +228,7 @@ export default function ChatPage() {
               <UserCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div className="text-4xs text-gray-400 font-bold space-y-1 uppercase tracking-wider">
                 <p className="text-primary font-black text-3xs">Xác thực chính chủ</p>
-                <p>EduMastery Verified</p>
+                <p>St3pLearn Verified</p>
               </div>
             </div>
           </div>

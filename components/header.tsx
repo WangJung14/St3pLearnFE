@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, BookOpen, ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getRoleFromToken, getRoleHomePath } from "@/lib/roleRoutes";
 
@@ -88,11 +88,14 @@ export default function Header() {
             className="flex items-center gap-2 text-2xl font-black text-primary transition-opacity hover:opacity-90"
             href="/"
           >
-            <div className="rounded-xl bg-gradient-to-tr from-primary to-secondary p-2 text-white shadow-md shadow-pink-200">
-              <BookOpen className="h-6 w-6" />
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-tr from-primary to-secondary shadow-md shadow-pink-200">
+              <svg width="24" height="24" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="scale-95">
+                <path fill="white" d="M101.141 53H136.632C151.023 53 162.689 64.6662 162.689 79.0573V112.904H148.112V79.0573C148.112 78.7105 148.098 78.3662 148.072 78.0251L112.581 112.898C112.701 112.902 112.821 112.904 112.941 112.904H148.112V126.672H112.941C98.5504 126.672 86.5638 114.891 86.5638 100.5V66.7434H101.141V100.5C101.141 101.15 101.191 101.792 101.289 102.422L137.56 66.7816C137.255 66.7563 136.945 66.7434 136.632 66.7434H101.141V53Z" />
+                <path fill="white" d="M65.2926 124.136L14 66.7372H34.6355L64.7495 100.436V66.7372H80.1365V118.47C80.1365 126.278 70.4953 129.958 65.2926 124.136Z" />
+              </svg>
             </div>
             <span className="hidden bg-gradient-to-r from-primary to-secondary bg-clip-text tracking-tight text-transparent sm:inline">
-              EduMastery
+              St3pLearn
             </span>
           </Link>
 

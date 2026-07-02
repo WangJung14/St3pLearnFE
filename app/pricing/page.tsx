@@ -137,7 +137,7 @@ export default function PricingPage() {
         {/* Tiêu đề trang và giới thiệu các gói học */}
         <div className="text-center space-y-4 max-w-2xl mx-auto">
           <Badge variant="default" className="px-3 py-1 text-2xs font-extrabold shadow-sm">
-            💎 EduMastery Premium Plans
+            💎 St3pLearn Premium Plans
           </Badge>
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-gray-950 leading-tight">
             Nâng tầm tri thức cùng các gói hội viên Pro
@@ -284,7 +284,7 @@ export default function PricingPage() {
           <Modal
             isOpen={selectedPlan !== null}
             onClose={() => setSelectedPlan(null)}
-            title="Cổng thanh toán EduMastery Checkout"
+            title="Cổng thanh toán St3pLearn Checkout"
           >
             {isPaymentSuccess ? (
               /* Màn hình thông báo thanh toán thành công và hóa đơn điện tử */

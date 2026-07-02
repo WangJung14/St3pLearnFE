@@ -147,7 +147,7 @@ export default function ForumPage() {
           <div className="space-y-1.5">
             <h1 className="text-3xl font-black text-gray-900 flex items-center gap-2">
               <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-              EduMastery Forum
+              St3pLearn Forum
             </h1>
             <p className="text-xs text-gray-500">Đặt câu hỏi học thuật, nhận hướng dẫn từ Mentor và kết nối cùng cộng đồng học viên xuất sắc.</p>
           </div>

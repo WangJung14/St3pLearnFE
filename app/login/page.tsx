@@ -92,7 +92,7 @@ export default function LoginPage() {
           </div>
           <div className="space-y-4">
             <h1 className="flex items-center justify-center gap-2 text-5xl font-black tracking-tight min-[2400px]:justify-start min-[2400px]:text-6xl">
-              EduMastery
+              St3pLearn
             </h1>
             <p className="max-w-[62ch] text-lg font-medium leading-relaxed text-white/95 min-[2400px]:text-xl">
               Chinh phục tiếng Anh học thuật thông minh hơn với phương pháp lặp lại ngắt quãng và chấm điểm phát âm AI.
@@ -117,7 +117,7 @@ export default function LoginPage() {
           <div className="text-center md:text-left space-y-2">
             <h2 className="text-3xl font-black text-gray-950 tracking-tight">Chào mừng trở lại</h2>
             <p className="text-xs text-gray-500 font-medium">
-              Vui lòng đăng nhập vào tài khoản EduMastery của bạn để tiếp tục học tập.
+              Vui lòng đăng nhập vào tài khoản St3pLearn của bạn để tiếp tục học tập.
             </p>
           </div>
 
@@ -202,7 +202,7 @@ export default function LoginPage() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  toast.info("Khôi phục mật khẩu", "Vui lòng liên hệ support@edumastery.com để được hỗ trợ.");
+                  toast.info("Khôi phục mật khẩu", "Vui lòng liên hệ support@St3pLearn.com để được hỗ trợ.");
                 }}
                 className="text-primary hover:opacity-85 transition-opacity"
               >
