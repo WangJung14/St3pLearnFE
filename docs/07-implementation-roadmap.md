@@ -52,7 +52,7 @@ Checklist:
 - [x] Tạo CourseCheckoutCard. _(components/courses/CourseCheckoutCard.tsx — giá, enroll button, lesson count, duration)_
 - [x] Tạo VideoModal. _(components/courses/VideoModal.tsx — modal xem video preview)_
 - [x] Tích hợp categories. _(fetch /api/categories, fallback mock)_
-- [x] Enroll có gọi API. _(POST /api/wishlists/course/{courseId} với token — nhưng đang nhầm: enroll thực ra đang gọi wishlist API, không phải /api/enrollments)_
+- [x] Enroll có gọi API. _(Đã sửa: sử dụng POST /api/enrollments thay vì nhầm sang wishlist)_
 - [x] Offline fallback. _(MOCK_DETAILS đầy đủ 6 khóa học mẫu cho CourseDetailPage, MOCK_COURSES cho SearchPage)_
 - [x] **Enroll mutation đúng endpoint.** _(POST /api/enrollments với body {courseId}, tách khỏi wishlist — có offline fallback)_
 - [x] **Review list read-only.** _(Section "Đánh giá từ học viên" — SWR fetch GET /api/courses/p/{courseId}/reviews, có loading/empty state, star rating, author avatar)_
@@ -78,7 +78,7 @@ Checklist:
 - [x] **ReviewForm.** _(components/courses/ReviewForm.tsx — POST `/api/courses/{courseId}/reviews` với `{ rating, reviewText }`, revalidate review list sau khi gửi)_
 - [x] **Sửa/xóa review của chính học viên.** _(CourseDetailPage hiển thị nút sửa/xóa khi `review.studentId === user.id`; update dùng `POST /api/courses/{courseId}/reviews/{reviewId}`, delete dùng `DELETE /api/courses/{courseId}/reviews/{reviewId}`)_
 - [x] **`any` trong StudentDashboard.** _(đã thay bằng `WishlistCourseItem`/`WishlistApiResponse`, đồng thời type Web Speech API trong quiz page để không còn `any` thuộc Phase 4)_
-- [ ] **Progress tracking thực.** _(progress = hardcode 35% hoặc 60%; BE hiện chỉ có `POST /api/enrollments`, chưa có GET progress để FE kết nối)_
+- [ ] **Progress tracking thực.** 
 - [ ] **Discussion thực.** _(comment chỉ lưu state local; BE chưa có endpoint GET/POST discussion theo lesson)_
 
 

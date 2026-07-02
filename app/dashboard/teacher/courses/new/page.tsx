@@ -4,20 +4,13 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, BookOpen, Save, Loader2, Sparkles } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { useToast } from "@/components/ui/Toast";
-import { courseCreateSchema, toFieldErrors, type FieldErrors } from "@/lib/validations";
-
-type CourseCreateField =
-  | "title"
-  | "shortDescription"
-  | "description"
-  | "price"
-  | "level"
-  | "language"
-  | "categoryId";
+import { courseCreateSchema, type CourseCreateFormValues } from "@/lib/validations";
 
 interface Category {
   id: string;
@@ -36,18 +29,26 @@ const MOCK_CATEGORIES: Category[] = [
 export default function NewCoursePage() {
   const router = useRouter();
   const { token, isAuthenticated, isLoading } = useAuth();
-
-  // Các trạng thái của Form thiết kế
-  const [title, setTitle] = useState("");
-  const [shortDescription, setShortDescription] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("0");
-  const [level, setLevel] = useState("B1");
-  const [language, setLanguage] = useState("English");
-  const [categoryId, setCategoryId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors<CourseCreateField>>({});
   const toast = useToast();
+
+  const {
+    register: registerField,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+  } = useForm<CourseCreateFormValues>({
+    resolver: zodResolver(courseCreateSchema),
+    defaultValues: {
+      title: "",
+      shortDescription: "",
+      description: "",
+      price: 0,
+      level: "B1",
+      language: "English",
+      categoryId: "",
+    },
+  });
 
   // Chuyển hướng về trang đăng nhập nếu chưa xác thực bảo mật
   useEffect(() => {
@@ -73,39 +74,20 @@ export default function NewCoursePage() {
 
   const categories = categoriesResponse || MOCK_CATEGORIES;
 
-  const fieldClassName = (field: CourseCreateField, base: string) =>
-    `${base} ${
-      fieldErrors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
-    }`;
-
   // Set default category
   useEffect(() => {
-    if (categories.length > 0 && !categoryId) {
-      setCategoryId(categories[0].id);
+    if (categories.length > 0) {
+      setValue("categoryId", categories[0].id, { shouldValidate: false });
     }
-  }, [categories, categoryId]);
+  }, [categories, setValue]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fieldClassName = (field: keyof CourseCreateFormValues, base: string) =>
+    `${base} ${
+      errors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+    }`;
+
+  const onSubmit = async (data: CourseCreateFormValues) => {
     if (!token) return;
-    setFieldErrors({});
-
-    const parsed = courseCreateSchema.safeParse({
-      title,
-      shortDescription,
-      description,
-      price,
-      level,
-      language,
-      categoryId,
-    });
-
-    if (!parsed.success) {
-      setFieldErrors(toFieldErrors<CourseCreateField>(parsed.error));
-      toast.warning("Thông tin khóa học chưa hợp lệ", parsed.error.issues[0]?.message);
-      return;
-    }
-
     setIsSaving(true);
 
     try {
@@ -117,12 +99,12 @@ export default function NewCoursePage() {
           ...buildAuthHeaders(token),
         },
         body: JSON.stringify({
-          title: parsed.data.title,
-          shortDescription: parsed.data.shortDescription,
-          description: parsed.data.description,
-          price: parsed.data.price,
-          level: parsed.data.level,
-          language: parsed.data.language
+          title: data.title,
+          shortDescription: data.shortDescription,
+          description: data.description,
+          price: data.price,
+          level: data.level,
+          language: data.language
         }),
       });
 
@@ -136,7 +118,7 @@ export default function NewCoursePage() {
       }
 
       const createdCourseId = body?.data?.id;
-      if (createdCourseId && parsed.data.categoryId) {
+      if (createdCourseId && data.categoryId) {
         await fetch(`${API_BASE_URL}/api/courses/${createdCourseId}/taxonomy`, {
           method: "POST",
           headers: {
@@ -144,7 +126,7 @@ export default function NewCoursePage() {
             ...buildAuthHeaders(token),
           },
           body: JSON.stringify({
-            categoryIds: [parsed.data.categoryId],
+            categoryIds: [data.categoryId],
             tagIds: [],
           }),
         }).catch(() => null);
@@ -169,6 +151,13 @@ export default function NewCoursePage() {
       router.push("/dashboard/teacher");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const onInvalid = () => {
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.warning("Thông tin khóa học chưa hợp lệ", firstError.message);
     }
   };
 
@@ -198,24 +187,22 @@ export default function NewCoursePage() {
             <p className="text-xs text-gray-500">Soạn thảo giáo trình, cài đặt trình độ và thiết lập học phí cho bài giảng.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5 text-sm">
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5 text-sm">
             {/* Title */}
             <div className="space-y-1.5">
               <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Tên khóa học</label>
               <input
                 type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                {...registerField("title")}
                 placeholder="Ví dụ: IELTS Masterclass: Lộ trình Step-by-Step 7.5+..."
-                aria-invalid={Boolean(fieldErrors.title)}
+                aria-invalid={Boolean(errors.title)}
                 className={fieldClassName(
                   "title",
                   "w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all"
                 )}
               />
-              {fieldErrors.title && (
-                <p className="text-3xs font-bold text-red-500">{fieldErrors.title}</p>
+              {errors.title && (
+                <p className="text-3xs font-bold text-red-500">{errors.title.message}</p>
               )}
             </div>
 
@@ -224,18 +211,16 @@ export default function NewCoursePage() {
               <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Mô tả ngắn gọn (Thẻ hiển thị)</label>
               <input
                 type="text"
-                required
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
+                {...registerField("shortDescription")}
                 placeholder="Ví dụ: Làm chủ cả 4 kỹ năng Nghe, Nói, Đọc, Viết chuẩn cấu trúc đề thi..."
-                aria-invalid={Boolean(fieldErrors.shortDescription)}
+                aria-invalid={Boolean(errors.shortDescription)}
                 className={fieldClassName(
                   "shortDescription",
                   "w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all"
                 )}
               />
-              {fieldErrors.shortDescription && (
-                <p className="text-3xs font-bold text-red-500">{fieldErrors.shortDescription}</p>
+              {errors.shortDescription && (
+                <p className="text-3xs font-bold text-red-500">{errors.shortDescription.message}</p>
               )}
             </div>
 
@@ -244,8 +229,7 @@ export default function NewCoursePage() {
               <div className="space-y-1.5">
                 <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Trình độ</label>
                 <select
-                  value={level}
-                  onChange={(e) => setLevel(e.target.value)}
+                  {...registerField("level")}
                   className="w-full text-xs rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white cursor-pointer"
                 >
                   {levelsList.map((lvl) => (
@@ -257,8 +241,7 @@ export default function NewCoursePage() {
               <div className="space-y-1.5">
                 <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Ngôn ngữ</label>
                 <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
+                  {...registerField("language")}
                   className="w-full text-xs rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white cursor-pointer"
                 >
                   <option value="English">English</option>
@@ -270,28 +253,25 @@ export default function NewCoursePage() {
                 <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Học phí (VND)</label>
                 <input
                   type="number"
-                  required
                   min="0"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  {...registerField("price", { valueAsNumber: true })}
                   placeholder="0 (Miễn phí)"
-                  aria-invalid={Boolean(fieldErrors.price)}
+                  aria-invalid={Boolean(errors.price)}
                   className={fieldClassName(
                     "price",
                     "w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all"
                   )}
                 />
-                {fieldErrors.price && (
-                  <p className="text-3xs font-bold text-red-500">{fieldErrors.price}</p>
+                {errors.price && (
+                  <p className="text-3xs font-bold text-red-500">{errors.price.message}</p>
                 )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Chủ điểm bài học</label>
                 <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  aria-invalid={Boolean(fieldErrors.categoryId)}
+                  {...registerField("categoryId")}
+                  aria-invalid={Boolean(errors.categoryId)}
                   className={fieldClassName(
                     "categoryId",
                     "w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none bg-white cursor-pointer"
@@ -301,8 +281,8 @@ export default function NewCoursePage() {
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
-                {fieldErrors.categoryId && (
-                  <p className="text-3xs font-bold text-red-500">{fieldErrors.categoryId}</p>
+                {errors.categoryId && (
+                  <p className="text-3xs font-bold text-red-500">{errors.categoryId.message}</p>
                 )}
               </div>
             </div>
@@ -312,18 +292,16 @@ export default function NewCoursePage() {
               <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Giới thiệu giáo trình chi tiết</label>
               <textarea
                 rows={5}
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                {...registerField("description")}
                 placeholder="Nhập giới thiệu chi tiết về nội dung giảng dạy, mục tiêu đầu ra và đối tượng học viên..."
-                aria-invalid={Boolean(fieldErrors.description)}
+                aria-invalid={Boolean(errors.description)}
                 className={fieldClassName(
                   "description",
                   "w-full text-xs rounded-2xl border p-4 focus:ring-2 focus:border-transparent outline-none transition-all"
                 )}
               />
-              {fieldErrors.description && (
-                <p className="text-3xs font-bold text-red-500">{fieldErrors.description}</p>
+              {errors.description && (
+                <p className="text-3xs font-bold text-red-500">{errors.description.message}</p>
               )}
             </div>
 

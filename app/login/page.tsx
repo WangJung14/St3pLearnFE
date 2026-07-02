@@ -3,24 +3,30 @@ import { Eye, EyeOff, BookOpen, ShieldCheck, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/AuthContext";
 import { GuestGuard } from "@/components/guards/GuestGuard";
 import { useToast } from "@/components/ui/Toast";
 import { getRoleHomePath } from "@/lib/roleRoutes";
-import { loginSchema, toFieldErrors, type FieldErrors } from "@/lib/validations";
-
-type LoginField = "email" | "password";
+import { loginSchema, type LoginFormValues } from "@/lib/validations";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors<LoginField>>({});
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
   const toast = useToast();
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+
+  const {
+    register: registerField,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
   // Lấy đường dẫn chuyển hướng sau khi đăng nhập thành công từ Search Params
   useEffect(() => {
@@ -34,20 +40,10 @@ export default function LoginPage() {
   }, []);
 
   // Xử lý đăng nhập thông qua API Gateway
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFieldErrors({});
-
-    const parsed = loginSchema.safeParse({ email, password });
-    if (!parsed.success) {
-      setFieldErrors(toFieldErrors<LoginField>(parsed.error));
-      toast.warning("Thông tin đăng nhập chưa hợp lệ", parsed.error.issues[0]?.message);
-      return;
-    }
-
+  const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const res = await login(parsed.data.email, parsed.data.password);
+      const res = await login(data.email, data.password);
       if (res.success) {
         toast.success("Đăng nhập thành công", "Đang chuyển bạn vào dashboard.");
         router.push(redirectUrl ?? res.redirectTo ?? getRoleHomePath(res.role));
@@ -59,6 +55,13 @@ export default function LoginPage() {
       toast.error("Không kết nối được máy chủ", "Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onInvalid = () => {
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.warning("Thông tin đăng nhập chưa hợp lệ", firstError.message);
     }
   };
 
@@ -118,7 +121,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form className="space-y-6" onSubmit={handleLogin}>
+          <form className="space-y-6" onSubmit={handleSubmit(onSubmit, onInvalid)}>
             <div className="space-y-4">
               {/* Nhập Email */}
               <div className="space-y-1.5">
@@ -131,17 +134,15 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...registerField("email")}
                   placeholder="name@example.com"
-                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-invalid={Boolean(errors.email)}
                   className={`w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all bg-white ${
-                    fieldErrors.email ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+                    errors.email ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
                   }`}
-                  required
                 />
-                {fieldErrors.email && (
-                  <p className="text-3xs font-bold text-red-500">{fieldErrors.email}</p>
+                {errors.email && (
+                  <p className="text-3xs font-bold text-red-500">{errors.email.message}</p>
                 )}
               </div>
 
@@ -157,14 +158,12 @@ export default function LoginPage() {
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    {...registerField("password")}
                     placeholder="••••••••"
-                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-invalid={Boolean(errors.password)}
                     className={`w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all bg-white ${
-                      fieldErrors.password ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+                      errors.password ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
                     }`}
-                    required
                   />
                   <button
                     type="button"
@@ -178,8 +177,8 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
-                {fieldErrors.password && (
-                  <p className="text-3xs font-bold text-red-500">{fieldErrors.password}</p>
+                {errors.password && (
+                  <p className="text-3xs font-bold text-red-500">{errors.password.message}</p>
                 )}
               </div>
             </div>
@@ -237,3 +236,4 @@ export default function LoginPage() {
     </GuestGuard>
   );
 }
+

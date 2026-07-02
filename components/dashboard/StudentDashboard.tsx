@@ -16,26 +16,20 @@ interface EnrolledCourse {
   lastActive: string;
 }
 
-interface WishlistCourseItem {
+interface EnrollmentResponseItem {
   id: string;
-  title?: string;
-  slug?: string;
-  thumbnailUrl?: string;
-  course?: {
-    id?: string;
-    title?: string;
-    slug?: string;
-    thumbnailUrl?: string;
-  };
+  studentId: string;
+  courseId: string;
+  status: string;
+  progressPercent: number;
+  enrolledAt: string;
 }
 
-interface WishlistResponsePayload {
-  content?: WishlistCourseItem[];
-}
-
-interface WishlistApiResponse {
-  data?: WishlistCourseItem[] | WishlistResponsePayload;
-  content?: WishlistCourseItem[];
+interface EnrollmentApiResponse {
+  data?: {
+    content?: EnrollmentResponseItem[];
+  } | EnrollmentResponseItem[];
+  content?: EnrollmentResponseItem[];
 }
 
 const MOCK_RECOMMENDATIONS = [
@@ -85,50 +79,76 @@ export default function StudentDashboard() {
     }
   }, []);
 
-  // Fetch wishlist (enrolled courses) from backend Gateway
-  const { data: wishlistCourses = [] } = useSWR<WishlistCourseItem[]>(
-    token ? [`${API_BASE_URL}/api/wishlists`, token] : null,
+  // Fetch enrolled courses from backend Gateway
+  const { data: enrolledApiData = [] } = useSWR<EnrollmentResponseItem[]>(
+    token ? [`${API_BASE_URL}/api/enrollments/my-courses?page=0&size=100`, token] : null,
     async ([url, t]: readonly [string, string]) => {
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${t}`,
         },
       });
-      if (!res.ok) throw new Error("Fetch wishlist failed");
-      const body = (await res.json()) as WishlistApiResponse;
+      if (!res.ok) throw new Error("Fetch enrolled courses failed");
+      const body = (await res.json()) as EnrollmentApiResponse;
       const payload = body.data ?? body.content ?? [];
-      return Array.isArray(payload) ? payload : payload.content ?? [];
+      return Array.isArray(payload) ? payload : (payload.content ?? []);
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const courseIdsToFetch = Array.from(
+    new Set([...enrolledApiData.map((e) => e.courseId), ...localEnrolledIds])
+  ).filter(id => uuidRegex.test(id));
+
+  interface CourseSummary {
+    id: string;
+    title: string;
+    slug: string;
+    thumbnailUrl: string;
+  }
+
+  const { data: courseSummaries = [] } = useSWR<CourseSummary[]>(
+    courseIdsToFetch.length > 0 ? [`${API_BASE_URL}/api/courses/bulk-summaries`, courseIdsToFetch] : null,
+    async ([url, ids]: readonly [string, string[]]) => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseIds: ids })
+      });
+      if (!res.ok) return []; // Nếu lỗi API public, trả về [] để tránh crash
+      const body = await res.json() as { data?: CourseSummary[] };
+      return body.data ?? [];
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
   // Map backend courses
-  const apiEnrolled: EnrolledCourse[] = wishlistCourses.map((item) => ({
-    id: item.course?.id ?? item.id,
-    title: item.course?.title ?? item.title ?? "Khóa học chưa đặt tên",
-    slug: item.course?.slug ?? item.slug ?? item.id,
-    thumbnail: item.course?.thumbnailUrl ?? item.thumbnailUrl ?? "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400",
-    progress: 35, // Demo progress
-    lastActive: "Vừa xong",
-  }));
+  const apiEnrolled: EnrolledCourse[] = enrolledApiData.map((item) => {
+    const matched = courseSummaries.find((c) => c.id === item.courseId);
+    return {
+      id: item.courseId,
+      title: matched?.title ?? "Khóa học đã đăng ký",
+      slug: matched?.slug ?? item.courseId,
+      thumbnail: matched?.thumbnailUrl || "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400",
+      progress: item.progressPercent ?? 0,
+      lastActive: "Vừa xong",
+    };
+  });
 
   // Map local storage offline courses if not present in API list
   const localEnrolled: EnrolledCourse[] = [];
-  const MOCK_COURSES_DATA = [
-    { id: "ielts-1", title: "IELTS Masterclass: Step-by-Step 7.5+", slug: "ielts-masterclass-step-by-step-7-5", thumbnail: "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400" },
-    { id: "grammar-1", title: "English Grammar for Beginners & Intermediate", slug: "english-grammar-for-beginners-intermediate", thumbnail: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=400" },
-  ];
 
   localEnrolledIds.forEach((id) => {
-    const exists = wishlistCourses.some((item) => (item.course?.id ?? item.id) === id);
+    const exists = enrolledApiData.some((item) => item.courseId === id);
     if (!exists) {
-      const matched = MOCK_COURSES_DATA.find((c) => c.id === id);
+      const matched = courseSummaries.find((c) => c.id === id);
       if (matched) {
         localEnrolled.push({
           id: matched.id,
           title: matched.title,
           slug: matched.slug,
-          thumbnail: matched.thumbnail,
+          thumbnail: matched.thumbnailUrl || "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=400",
           progress: 60,
           lastActive: "Chế độ Offline",
         });

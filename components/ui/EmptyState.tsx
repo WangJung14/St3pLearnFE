@@ -20,7 +20,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "bg-white rounded-3xl border border-gray-100 shadow-soft py-16 px-6 text-center space-y-4 max-w-lg mx-auto w-full flex flex-col items-center justify-center animate-fade-in",
+        "bg-white rounded-3xl border border-gray-100 shadow-soft py-16 px-6 text-center space-y-4 max-w-lg mx-auto w-full min-w-[320px] sm:min-w-[400px] flex flex-col items-center justify-center animate-fade-in",
         className
       )}
     >
@@ -29,7 +29,7 @@ export function EmptyState({
       </div>
       <div className="space-y-1.5">
         <h4 className="font-extrabold text-gray-900 text-base leading-none">{title}</h4>
-        <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed">{description}</p>
+        <p className="text-xs text-gray-500 max-w-xs mx-auto min-w-[320px] sm:min-w-[400px] leading-relaxed">{description}</p>
       </div>
       {action && <div className="pt-2">{action}</div>}
     </div>

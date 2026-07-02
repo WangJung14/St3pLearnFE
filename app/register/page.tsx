@@ -3,62 +3,53 @@ import { Eye, EyeOff, BookOpen, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/AuthContext";
 import { GuestGuard } from "@/components/guards/GuestGuard";
 import { useToast } from "@/components/ui/Toast";
-import { registerSchema, toFieldErrors, type FieldErrors } from "@/lib/validations";
-
-type RegisterField = "fullName" | "username" | "email" | "password" | "retypePassword";
+import { registerSchema, type RegisterFormValues } from "@/lib/validations";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRetypePassword, setShowRetypePassword] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [retypePassword, setRetypePassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors<RegisterField>>({});
 
   const router = useRouter();
-  const { register } = useAuth();
+  const { register: authRegister } = useAuth();
   const toast = useToast();
 
-  const inputClassName = (field: RegisterField) =>
+  const {
+    register: registerField,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      fullName: "",
+      username: "",
+      email: "",
+      password: "",
+      retypePassword: "",
+    },
+  });
+
+  const inputClassName = (field: keyof RegisterFormValues) =>
     `w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all bg-white ${
-      fieldErrors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+      errors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
     }`;
 
   // Xử lý đăng ký tài khoản mới qua AuthContext
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: RegisterFormValues) => {
     setErrorMessage("");
-    setFieldErrors({});
-
-    const parsed = registerSchema.safeParse({
-      fullName,
-      username,
-      email,
-      password,
-      retypePassword,
-    });
-
-    if (!parsed.success) {
-      setFieldErrors(toFieldErrors<RegisterField>(parsed.error));
-      setErrorMessage(parsed.error.issues[0]?.message ?? "Thông tin đăng ký chưa hợp lệ.");
-      toast.warning("Thông tin đăng ký chưa hợp lệ", parsed.error.issues[0]?.message);
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const result = await register({
-        email: parsed.data.email,
-        password: parsed.data.password,
-        username: parsed.data.username,
-        fullName: parsed.data.fullName,
+      const result = await authRegister({
+        email: data.email,
+        password: data.password,
+        username: data.username,
+        fullName: data.fullName,
       });
 
       if (result.success) {
@@ -74,6 +65,14 @@ export default function RegisterPage() {
       toast.error("Không kết nối được máy chủ", "Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onInvalid = () => {
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      setErrorMessage(firstError.message);
+      toast.warning("Thông tin đăng ký chưa hợp lệ", firstError.message);
     }
   };
 
@@ -140,7 +139,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <form className="space-y-5" onSubmit={handleRegister}>
+            <form className="space-y-5" onSubmit={handleSubmit(onSubmit, onInvalid)}>
               <div className="space-y-4">
                 {/* Dòng 1: Họ tên & Tên đăng nhập */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -154,15 +153,13 @@ export default function RegisterPage() {
                     <input
                       id="fullname"
                       type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      {...registerField("fullName")}
                       placeholder="Nguyen Van A"
-                      aria-invalid={Boolean(fieldErrors.fullName)}
+                      aria-invalid={Boolean(errors.fullName)}
                       className={inputClassName("fullName")}
-                      required
                     />
-                    {fieldErrors.fullName && (
-                      <p className="text-3xs font-bold text-red-500">{fieldErrors.fullName}</p>
+                    {errors.fullName && (
+                      <p className="text-3xs font-bold text-red-500">{errors.fullName.message}</p>
                     )}
                   </div>
                   <div className="space-y-1.5">
@@ -175,16 +172,13 @@ export default function RegisterPage() {
                     <input
                       id="username"
                       type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      {...registerField("username")}
                       placeholder="nguyenvana123"
-                      aria-invalid={Boolean(fieldErrors.username)}
+                      aria-invalid={Boolean(errors.username)}
                       className={inputClassName("username")}
-                      required
-                      minLength={4}
                     />
-                    {fieldErrors.username && (
-                      <p className="text-3xs font-bold text-red-500">{fieldErrors.username}</p>
+                    {errors.username && (
+                      <p className="text-3xs font-bold text-red-500">{errors.username.message}</p>
                     )}
                   </div>
                 </div>
@@ -200,15 +194,13 @@ export default function RegisterPage() {
                   <input
                     id="email"
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    {...registerField("email")}
                     placeholder="name@example.com"
-                    aria-invalid={Boolean(fieldErrors.email)}
+                    aria-invalid={Boolean(errors.email)}
                     className={inputClassName("email")}
-                    required
                   />
-                  {fieldErrors.email && (
-                    <p className="text-3xs font-bold text-red-500">{fieldErrors.email}</p>
+                  {errors.email && (
+                    <p className="text-3xs font-bold text-red-500">{errors.email.message}</p>
                   )}
                 </div>
 
@@ -225,13 +217,10 @@ export default function RegisterPage() {
                       <input
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        {...registerField("password")}
                         placeholder="••••••••"
-                        aria-invalid={Boolean(fieldErrors.password)}
+                        aria-invalid={Boolean(errors.password)}
                         className={inputClassName("password")}
-                        required
-                        minLength={8}
                       />
                       <button
                         type="button"
@@ -245,8 +234,8 @@ export default function RegisterPage() {
                         )}
                       </button>
                     </div>
-                    {fieldErrors.password && (
-                      <p className="text-3xs font-bold text-red-500">{fieldErrors.password}</p>
+                    {errors.password && (
+                      <p className="text-3xs font-bold text-red-500">{errors.password.message}</p>
                     )}
                   </div>
 
@@ -261,12 +250,10 @@ export default function RegisterPage() {
                       <input
                         id="retype-password"
                         type={showRetypePassword ? "text" : "password"}
-                        value={retypePassword}
-                        onChange={(e) => setRetypePassword(e.target.value)}
+                        {...registerField("retypePassword")}
                         placeholder="••••••••"
-                        aria-invalid={Boolean(fieldErrors.retypePassword)}
+                        aria-invalid={Boolean(errors.retypePassword)}
                         className={inputClassName("retypePassword")}
-                        required
                       />
                       <button
                         type="button"
@@ -280,8 +267,8 @@ export default function RegisterPage() {
                         )}
                       </button>
                     </div>
-                    {fieldErrors.retypePassword && (
-                      <p className="text-3xs font-bold text-red-500">{fieldErrors.retypePassword}</p>
+                    {errors.retypePassword && (
+                      <p className="text-3xs font-bold text-red-500">{errors.retypePassword.message}</p>
                     )}
                   </div>
                 </div>

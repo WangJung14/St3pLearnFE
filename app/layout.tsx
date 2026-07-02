@@ -2,7 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthHydrator } from '@/components/AuthHydrator'
 import { ToastProvider } from '@/components/ui/Toast'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -49,11 +49,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <AuthProvider>
+        <AuthHydrator />
           <ToastProvider>
             {children}
           </ToastProvider>
-        </AuthProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

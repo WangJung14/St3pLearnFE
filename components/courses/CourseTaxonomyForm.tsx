@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { Check, Loader2, Tags } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { useToast } from "@/components/ui/Toast";
-import { getValidationMessage, taxonomySchema } from "@/lib/validations";
+import { taxonomySchema } from "@/lib/validations";
+import { z } from "zod";
+
+type TaxonomyFormValues = z.infer<typeof taxonomySchema>;
 
 interface TaxonomyItem {
   id: string;
@@ -41,12 +46,23 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFormProps) {
-  const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const toast = useToast();
+
+  const {
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<TaxonomyFormValues>({
+    resolver: zodResolver(taxonomySchema),
+    defaultValues: { categoryIds: [], tagIds: [] },
+  });
+
+  const categoryIds = watch("categoryIds");
+  const tagIds = watch("tagIds");
 
   const {
     data: categories = [],
@@ -72,31 +88,22 @@ export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFo
 
   useEffect(() => {
     if (!courseSnapshot) return;
-    setCategoryIds(courseSnapshot.categories?.map((category) => category.id) ?? []);
-    setTagIds(courseSnapshot.tags?.map((tag) => tag.id) ?? []);
-  }, [courseSnapshot]);
+    setValue("categoryIds", courseSnapshot.categories?.map((category) => category.id) ?? []);
+    setValue("tagIds", courseSnapshot.tags?.map((tag) => tag.id) ?? []);
+  }, [courseSnapshot, setValue]);
 
   const toggleValue = (current: string[], value: string) =>
     current.includes(value)
       ? current.filter((item) => item !== value)
       : [...current, value];
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onSubmit = async (data: TaxonomyFormValues) => {
     setMessage("");
     setErrorMessage("");
 
     if (!token) {
       setErrorMessage("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
       toast.error("Không thể lưu phân loại", "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-      return;
-    }
-
-    const parsed = taxonomySchema.safeParse({ categoryIds, tagIds });
-    if (!parsed.success) {
-      const error = getValidationMessage(parsed.error);
-      setErrorMessage(error);
-      toast.warning("Phân loại chưa hợp lệ", error);
       return;
     }
 
@@ -108,7 +115,7 @@ export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFo
           "Content-Type": "application/json",
           ...buildAuthHeaders(token),
         },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify(data),
       });
 
       const body = await res.json().catch(() => null) as { message?: string } | null;
@@ -128,8 +135,16 @@ export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFo
     }
   };
 
+  const onInvalid = () => {
+    const firstError = errors.categoryIds?.message ?? errors.tagIds?.message;
+    if (firstError) {
+      setErrorMessage(firstError);
+      toast.warning("Phân loại chưa hợp lệ", firstError);
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
       <div className="space-y-1 border-b border-gray-50 pb-4">
         <h2 className="flex items-center gap-2 text-xl font-black text-gray-900">
           <Tags className="h-5 w-5 text-primary" />
@@ -165,7 +180,7 @@ export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFo
                 <button
                   key={category.id}
                   type="button"
-                  onClick={() => setCategoryIds((current) => toggleValue(current, category.id))}
+                  onClick={() => setValue("categoryIds", toggleValue(categoryIds, category.id), { shouldValidate: true })}
                   className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-xs font-bold transition-all ${
                     selected
                       ? "border-primary bg-pink-50/60 text-primary"
@@ -204,7 +219,7 @@ export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFo
                 <button
                   key={tag.id}
                   type="button"
-                  onClick={() => setTagIds((current) => toggleValue(current, tag.id))}
+                  onClick={() => setValue("tagIds", toggleValue(tagIds, tag.id))}
                   className={`rounded-full border px-3 py-1.5 text-xs font-extrabold transition-all ${
                     selected
                       ? "border-secondary bg-blue-50 text-secondary"

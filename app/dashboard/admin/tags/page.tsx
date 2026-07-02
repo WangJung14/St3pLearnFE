@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { ArrowLeft, Hash, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { RoleGuard } from "@/components/guards/RoleGuard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
@@ -12,7 +14,10 @@ import { buildAuthHeaders } from "@/lib/authHeaders";
 import { unwrapData, type ApiResponse } from "@/lib/apiResponses";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/Toast";
-import { getValidationMessage, taxonomyNameSchema } from "@/lib/validations";
+import { taxonomyNameSchema } from "@/lib/validations";
+import { z } from "zod";
+
+type TaxonomyNameValues = z.infer<typeof taxonomyNameSchema>;
 
 interface Tag {
   id: string;
@@ -28,11 +33,20 @@ async function fetchTags(url: string): Promise<Tag[]> {
 
 export default function AdminTagPage() {
   const { token } = useAuth();
-  const [name, setName] = useState("");
   const [editing, setEditing] = useState<Tag | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [nameError, setNameError] = useState("");
   const toast = useToast();
+
+  const {
+    register: registerField,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+  } = useForm<TaxonomyNameValues>({
+    resolver: zodResolver(taxonomyNameSchema),
+    defaultValues: { name: "" },
+  });
 
   const { data: tags = [], error, isLoading, mutate } = useSWR<Tag[]>(
     `${API_BASE_URL}/api/tags`,
@@ -41,24 +55,12 @@ export default function AdminTagPage() {
   );
 
   const resetForm = () => {
-    setName("");
+    reset({ name: "" });
     setEditing(null);
-    setNameError("");
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onSubmit = async (data: TaxonomyNameValues) => {
     if (!token) return;
-    setNameError("");
-
-    const parsed = taxonomyNameSchema.safeParse({ name });
-    if (!parsed.success) {
-      const message = getValidationMessage(parsed.error);
-      setNameError(message);
-      toast.warning("Tên tag chưa hợp lệ", message);
-      return;
-    }
-
     setIsSaving(true);
     try {
       const endpoint = editing ? `${API_BASE_URL}/api/tags/${editing.id}` : `${API_BASE_URL}/api/tags`;
@@ -68,7 +70,7 @@ export default function AdminTagPage() {
           "Content-Type": "application/json",
           ...buildAuthHeaders(token, "ADMIN"),
         },
-        body: JSON.stringify({ name: parsed.data.name }),
+        body: JSON.stringify({ name: data.name }),
       });
       const body = await res.json().catch(() => null) as { message?: string } | null;
       if (!res.ok) throw new Error(body?.message ?? "Lưu tag thất bại");
@@ -80,6 +82,13 @@ export default function AdminTagPage() {
       toast.error("Lưu tag thất bại", err instanceof Error ? err.message : undefined);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const onInvalid = () => {
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.warning("Tên tag chưa hợp lệ", firstError.message);
     }
   };
 
@@ -123,7 +132,7 @@ export default function AdminTagPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
-            <form onSubmit={handleSubmit} className="h-fit rounded-3xl border border-gray-100 bg-white p-6 shadow-soft space-y-4">
+            <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="h-fit rounded-3xl border border-gray-100 bg-white p-6 shadow-soft space-y-4">
               <div className="space-y-1">
                 <h2 className="text-base font-black text-gray-900">{editing ? "Sửa tag" : "Thêm tag"}</h2>
                 <p className="text-xs text-gray-500">Tag giúp teacher làm rõ chủ đề và kỹ năng trọng tâm.</p>
@@ -131,20 +140,15 @@ export default function AdminTagPage() {
               <div className="space-y-1.5">
                 <label className="text-2xs font-extrabold uppercase tracking-wider text-gray-400">Tên tag</label>
                 <input
-                  value={name}
-                  onChange={(event) => {
-                    setName(event.target.value);
-                    if (nameError) setNameError("");
-                  }}
-                  required
+                  {...registerField("name")}
                   placeholder="Ví dụ: IELTS Writing"
-                  aria-invalid={Boolean(nameError)}
+                  aria-invalid={Boolean(errors.name)}
                   className={`w-full rounded-xl border px-4 py-3 text-xs outline-none focus:ring-2 ${
-                    nameError ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+                    errors.name ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
                   }`}
                 />
-                {nameError && (
-                  <p className="text-3xs font-bold text-red-500">{nameError}</p>
+                {errors.name && (
+                  <p className="text-3xs font-bold text-red-500">{errors.name.message}</p>
                 )}
               </div>
               <div className="flex gap-2">
@@ -199,7 +203,7 @@ export default function AdminTagPage() {
                             <button
                               onClick={() => {
                                 setEditing(tag);
-                                setName(tag.name);
+                                setValue("name", tag.name);
                               }}
                               className="rounded-xl border border-gray-100 bg-gray-50 p-2 text-gray-500 hover:text-primary"
                               title="Sửa"
