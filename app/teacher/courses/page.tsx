@@ -43,7 +43,7 @@ const MOCK_TEACHER_COURSES: Course[] = [
   }
 ];
 
-export default function TeacherDashboard() {
+export default function TeacherCoursesPage() {
   const { token } = useAuth();
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
@@ -172,102 +172,7 @@ export default function TeacherDashboard() {
 
   return (
     <div className="space-y-10 animate-fade-in">
-      {/* Revenue and statistics cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-soft p-6 flex items-center gap-4">
-          <div className="p-4 bg-pink-50 text-primary rounded-2xl">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-gray-900">4,320</span>
-            <span className="text-2xs font-extrabold text-gray-400 uppercase tracking-wider">Học viên đăng ký</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-soft p-6 flex items-center gap-4">
-          <div className="p-4 bg-blue-50 text-secondary rounded-2xl">
-            <DollarSign className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-gray-900">18.5M đ</span>
-            <span className="text-2xs font-extrabold text-gray-400 uppercase tracking-wider">Doanh thu tháng này</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-soft p-6 flex items-center gap-4">
-          <div className="p-4 bg-purple-50 text-purple-500 rounded-2xl">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-gray-900">{courses.length}</span>
-            <span className="text-2xs font-extrabold text-gray-400 uppercase tracking-wider">Tổng số khóa học</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-soft p-6 flex items-center gap-4">
-          <div className="p-4 bg-amber-50 text-amber-500 rounded-2xl">
-            <Star className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-gray-900">4.8 / 5</span>
-            <span className="text-2xs font-extrabold text-gray-400 uppercase tracking-wider font-semibold">Đánh giá trung bình</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Revenue Growth Chart (SVG area chart) */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-soft p-6 space-y-6">
-        <div className="space-y-0.5">
-          <h4 className="font-extrabold text-gray-900 text-base">Thống kê doanh thu</h4>
-          <p className="text-2xs font-semibold text-gray-400 uppercase tracking-wider">Tăng trưởng thu nhập (6 tháng gần đây)</p>
-        </div>
-
-        {/* Custom SVG area chart */}
-        <div className="h-44 w-full pt-4">
-          <svg className="w-full h-full" viewBox="0 0 600 120" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#FF5FA2" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#4DA6FF" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-            {/* Grid lines */}
-            <line x1="0" y1="20" x2="600" y2="20" stroke="#f3f4f6" strokeWidth="1" />
-            <line x1="0" y1="60" x2="600" y2="60" stroke="#f3f4f6" strokeWidth="1" />
-            <line x1="0" y1="100" x2="600" y2="100" stroke="#f3f4f6" strokeWidth="1" />
-
-            {/* Chart Area */}
-            <path
-              d="M 10,110 L 100,90 L 200,95 L 300,50 L 400,60 L 500,20 L 590,15 L 590,110 Z"
-              fill="url(#chartGrad)"
-            />
-            {/* Chart Path */}
-            <path
-              d="M 10,110 L 100,90 L 200,95 L 300,50 L 400,60 L 500,20 L 590,15"
-              fill="none"
-              stroke="#FF5FA2"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            {/* Chart points */}
-            <circle cx="10" cy="110" r="4" fill="#FF5FA2" />
-            <circle cx="100" cy="90" r="4" fill="#FF5FA2" />
-            <circle cx="200" cy="95" r="4" fill="#FF5FA2" />
-            <circle cx="300" cy="50" r="4" fill="#FF5FA2" />
-            <circle cx="400" cy="60" r="4" fill="#FF5FA2" />
-            <circle cx="500" cy="20" r="4" fill="#FF5FA2" />
-            <circle cx="590" cy="15" r="4" fill="#FF5FA2" />
-          </svg>
-          <div className="flex justify-between text-2xs font-bold text-gray-400 pt-2 px-2">
-            <span>Tháng 1</span>
-            <span>Tháng 2</span>
-            <span>Tháng 3</span>
-            <span>Tháng 4</span>
-            <span>Tháng 5</span>
-            <span>Tháng 6</span>
-          </div>
-        </div>
-      </div>
+      {/* Courses Management Table */}
 
       {/* Courses Management Table */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-soft overflow-hidden">

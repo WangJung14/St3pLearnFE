@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, type UserRole } from "@/context/AuthContext";
 import { getRoleFromToken, getRoleHomePath, normalizeRole } from "@/lib/roleRoutes";
+import { getActiveRoleContext } from "@/lib/activeRoleHelper";
 
 interface RoleGuardProps {
   /** Danh sách role được phép truy cập */
@@ -39,7 +40,8 @@ export function RoleGuard({ allow, children, fallback }: RoleGuardProps) {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      router.replace("/login");
+      const targetRole = getActiveRoleContext().toLowerCase();
+      router.replace(`/${targetRole}/login`);
       return;
     }
 

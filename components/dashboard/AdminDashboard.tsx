@@ -151,7 +151,7 @@ export default function AdminDashboard() {
               </p>
             </div>
             <Link
-              href="/dashboard/admin/approvals"
+              href="/admin/approvals"
               className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-xs font-extrabold text-white shadow-md shadow-pink-100 hover:opacity-95"
             >
               Xem tất cả
@@ -175,7 +175,7 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   <Link
-                    href={`/dashboard/admin/approvals/${approval.approvalRequestId}`}
+                    href={`/admin/approvals/${approval.approvalRequestId}`}
                     className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-2 text-xs font-extrabold text-gray-600 hover:text-primary"
                   >
                     Xử lý
@@ -191,11 +191,11 @@ export default function AdminDashboard() {
             <h2 className="text-base font-black text-gray-900">Quản trị taxonomy</h2>
             <p className="mt-1 text-xs leading-relaxed text-gray-500">Quản lý danh mục và tag để giáo viên phân loại khóa học.</p>
             <div className="mt-5 grid grid-cols-1 gap-3">
-              <Link href="/dashboard/admin/categories" className="flex items-center justify-between rounded-2xl bg-pink-50 px-4 py-3 text-xs font-extrabold text-primary hover:bg-pink-100">
+              <Link href="/admin/categories" className="flex items-center justify-between rounded-2xl bg-pink-50 px-4 py-3 text-xs font-extrabold text-primary hover:bg-pink-100">
                 Danh mục
                 <FolderTree className="h-4 w-4" />
               </Link>
-              <Link href="/dashboard/admin/tags" className="flex items-center justify-between rounded-2xl bg-blue-50 px-4 py-3 text-xs font-extrabold text-secondary hover:bg-blue-100">
+              <Link href="/admin/tags" className="flex items-center justify-between rounded-2xl bg-blue-50 px-4 py-3 text-xs font-extrabold text-secondary hover:bg-blue-100">
                 Tag
                 <Hash className="h-4 w-4" />
               </Link>

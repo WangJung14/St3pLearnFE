@@ -256,7 +256,7 @@ export default function StudentDashboard() {
 
                   <div className="flex justify-end pt-1">
                     <button
-                      onClick={() => router.push(`/dashboard/student/player/${course.slug}`)}
+                      onClick={() => router.push(`/student/player/${course.slug}`)}
                       className="bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 text-primary text-xs font-black py-2.5 px-4 rounded-xl flex items-center gap-1 transition-all cursor-pointer"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
@@ -340,7 +340,7 @@ export default function StudentDashboard() {
             Sử dụng thẻ ghi nhớ (Flashcards) lặp lại ngắt quãng để ghi nhớ từ vựng học thuật sâu sắc.
           </p>
           <button
-            onClick={() => router.push("/dashboard/student/vocabulary")}
+            onClick={() => router.push("/student/vocabulary")}
             className="bg-white hover:bg-gray-50 text-primary text-xs font-black py-2.5 w-full rounded-2xl shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
             <span>Bắt đầu ôn tập</span>

@@ -18,20 +18,23 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { getActiveRoleContext } from "@/lib/activeRoleHelper";
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  /** Trang redirect khi chưa đăng nhập. Mặc định: "/login" */
+  /** Trang redirect khi chưa đăng nhập. Nếu bỏ trống, sẽ tự nhận diện role context */
   redirectTo?: string;
 }
 
-export function AuthGuard({ children, redirectTo = "/login" }: AuthGuardProps) {
+export function AuthGuard({ children, redirectTo }: AuthGuardProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace(redirectTo);
+      const targetRole = getActiveRoleContext().toLowerCase();
+      const finalRedirect = redirectTo ?? `/${targetRole}/login`;
+      router.replace(finalRedirect);
     }
   }, [isAuthenticated, isLoading, router, redirectTo]);
 

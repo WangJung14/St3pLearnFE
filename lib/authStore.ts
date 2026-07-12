@@ -19,6 +19,7 @@ import { create } from "zustand";
 import { mutate as globalMutate } from "swr";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { getRoleHomePath, normalizeRole } from "@/lib/roleRoutes";
+import { getRoleStorageKey } from "@/lib/activeRoleHelper";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -103,8 +104,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ---------------------------------------------------------------------------
   hydrate: () => {
     try {
-      const savedToken = localStorage.getItem("st3p_token");
-      const savedUser = localStorage.getItem("st3p_user");
+      const tokenKey = getRoleStorageKey("st3p_token");
+      const userKey = getRoleStorageKey("st3p_user");
+
+      const savedToken = localStorage.getItem(tokenKey);
+      const savedUser = localStorage.getItem(userKey);
 
       const tokenPayload = savedToken ? decodeJwt(savedToken) : null;
       const tokenRoles = tokenPayload?.roles as string[] | undefined;
@@ -128,7 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (err) {
       console.error("Failed to restore auth session:", err);
-      localStorage.removeItem("st3p_user");
+      localStorage.removeItem(getRoleStorageKey("st3p_user"));
       set({ isLoading: false });
     }
   },
@@ -163,10 +167,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const accessToken = data.accessToken as string;
       const refreshToken = (data.refreshToken as string | undefined) ?? null;
 
-      // Lưu tokens
-      localStorage.setItem("st3p_token", accessToken);
+      // Chưa lưu token ngay ở đây vì cần biết chính xác role. Tạm thời dùng biến local
+      // hoặc lấy role từ tokenPayload
+      const tokenPayload = decodeJwt(accessToken);
+      const tempRole = normalizeRole(tokenPayload?.role as string | undefined);
+      const tokenKeyTemp = getRoleStorageKey("st3p_token", tempRole);
+      const refreshKeyTemp = getRoleStorageKey("st3p_refresh_token", tempRole);
+
+      localStorage.setItem(tokenKeyTemp, accessToken);
       if (refreshToken) {
-        localStorage.setItem("st3p_refresh_token", refreshToken);
+        localStorage.setItem(refreshKeyTemp, refreshToken);
       }
 
       // Gọi /api/users/me để lấy thông tin user chính xác từ server
@@ -213,8 +223,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
       }
 
+      const resolvedRole = normalizeRole(userData.role);
+      const tokenKey = getRoleStorageKey("st3p_token", resolvedRole);
+      const userKey = getRoleStorageKey("st3p_user", resolvedRole);
+      const refreshKey = getRoleStorageKey("st3p_refresh_token", resolvedRole);
+
+      // Nếu temp role khác resolved role, cần đổi key
+      if (tempRole !== resolvedRole) {
+        localStorage.removeItem(tokenKeyTemp);
+        localStorage.removeItem(refreshKeyTemp);
+        localStorage.setItem(tokenKey, accessToken);
+        if (refreshToken) {
+          localStorage.setItem(refreshKey, refreshToken);
+        }
+      }
+
       set({ token: accessToken, user: userData, isAuthenticated: true });
-      localStorage.setItem("st3p_user", JSON.stringify(userData));
+      localStorage.setItem(userKey, JSON.stringify(userData));
 
       // Revalidate toàn bộ SWR cache
       globalMutate(() => true, undefined, { revalidate: true });
@@ -268,9 +293,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     set({ token: null, user: null, isAuthenticated: false });
 
-    localStorage.removeItem("st3p_token");
-    localStorage.removeItem("st3p_user");
-    localStorage.removeItem("st3p_refresh_token");
+    const tokenKey = getRoleStorageKey("st3p_token");
+    const userKey = getRoleStorageKey("st3p_user");
+    const refreshKey = getRoleStorageKey("st3p_refresh_token");
+
+    localStorage.removeItem(tokenKey);
+    localStorage.removeItem(userKey);
+    localStorage.removeItem(refreshKey);
 
     // Clear toàn bộ SWR cache
     globalMutate(() => true, undefined, { revalidate: false });
@@ -282,7 +311,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateUser: (data: Partial<User>) => {
     const prev = get().user;
     const updated = { ...(prev ?? {}), ...data };
+    const userKey = getRoleStorageKey("st3p_user", updated.role as UserRole | undefined);
     set({ user: updated });
-    localStorage.setItem("st3p_user", JSON.stringify(updated));
+    localStorage.setItem(userKey, JSON.stringify(updated));
   },
 }));

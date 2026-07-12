@@ -416,8 +416,9 @@ export default function CourseDetailPage({
     isFallback = true;
   }
 
-  // courseId dùng cho API calls (từ real data hoặc fallback mock)
-  const courseId = course?.id ?? MOCK_DETAILS[slug]?.id;
+  // courseId dùng cho API calls — chỉ dùng UUID thật từ server, không dùng mock id
+  // (mock id như "ielts-1" không phải UUID hợp lệ, sẽ gây 500 ở backend)
+  const courseId = course?.id;
 
   // Wishlist
   const { data: wishlistData, mutate: mutateWishlist } = useSWR<WishlistItem[]>(
@@ -520,7 +521,7 @@ export default function CourseDetailPage({
       localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
 
       toast.success("Đăng ký khóa học thành công", "Đang chuyển bạn về dashboard học viên.");
-      router.push("/dashboard/student");
+      router.push("/student");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Lỗi kết nối server";
       console.warn("Enroll API failed, saving locally:", message);
@@ -531,7 +532,7 @@ export default function CourseDetailPage({
       localStorage.setItem("st3p_enrolled_local", JSON.stringify(updatedLocal));
 
       toast.warning("Đã lưu đăng ký ở chế độ offline", "Backend chưa phản hồi, dashboard vẫn có dữ liệu demo.");
-      router.push("/dashboard/student");
+      router.push("/student");
     } finally {
       setIsSaving(false);
     }

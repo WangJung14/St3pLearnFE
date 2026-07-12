@@ -1,11 +1,11 @@
 import type { UserRole } from "@/context/AuthContext";
 
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
-  STUDENT: "/dashboard/student",
-  TEACHER: "/dashboard/teacher",
-  ADMIN: "/dashboard/admin",
-  MENTOR: "/dashboard/mentor",
-  MODERATOR: "/dashboard/moderator",
+  STUDENT: "/student",
+  TEACHER: "/teacher",
+  ADMIN: "/admin",
+  MENTOR: "/mentor",
+  MODERATOR: "/moderator",
 };
 
 const VALID_ROLES = new Set<UserRole>([

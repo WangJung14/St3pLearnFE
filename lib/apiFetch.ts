@@ -19,6 +19,7 @@
  */
 
 import { API_BASE_URL } from "./apiConfig";
+import { getRoleStorageKey, getActiveRoleContext } from "./activeRoleHelper";
 
 let isRefreshing = false;
 let pendingCallbacks: Array<(token: string | null) => void> = [];
@@ -26,16 +27,23 @@ let pendingCallbacks: Array<(token: string | null) => void> = [];
 /** Lấy token hiện tại từ localStorage */
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("st3p_token");
+  const tokenKey = getRoleStorageKey("st3p_token");
+  return localStorage.getItem(tokenKey);
 }
 
 /** Xóa session và redirect về /login (hard redirect để reset toàn bộ React tree) */
 function clearSessionAndRedirect(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("st3p_token");
-  localStorage.removeItem("st3p_user");
-  localStorage.removeItem("st3p_refresh_token");
-  window.location.href = "/login";
+  const tokenKey = getRoleStorageKey("st3p_token");
+  const userKey = getRoleStorageKey("st3p_user");
+  const refreshKey = getRoleStorageKey("st3p_refresh_token");
+
+  localStorage.removeItem(tokenKey);
+  localStorage.removeItem(userKey);
+  localStorage.removeItem(refreshKey);
+  
+  const targetRole = getActiveRoleContext().toLowerCase();
+  window.location.href = `/${targetRole}/login`;
 }
 
 /**
@@ -45,7 +53,8 @@ function clearSessionAndRedirect(): void {
 async function tryRefreshToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
 
-  const refreshToken = localStorage.getItem("st3p_refresh_token");
+  const refreshKey = getRoleStorageKey("st3p_refresh_token");
+  const refreshToken = localStorage.getItem(refreshKey);
   if (!refreshToken) return null;
 
   try {
@@ -63,7 +72,8 @@ async function tryRefreshToken(): Promise<string | null> {
       body?.data?.accessToken ?? body?.accessToken ?? null;
 
     if (newToken) {
-      localStorage.setItem("st3p_token", newToken);
+      const tokenKey = getRoleStorageKey("st3p_token");
+      localStorage.setItem(tokenKey, newToken);
     }
 
     return newToken;

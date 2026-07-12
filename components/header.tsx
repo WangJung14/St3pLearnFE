@@ -3,14 +3,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getRoleFromToken, getRoleHomePath } from "@/lib/roleRoutes";
+import NotificationDropdown from "@/components/ui/NotificationDropdown";
 
 export default function Header() {
   const { user, token, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -31,7 +31,6 @@ export default function Header() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setShowUserMenu(false);
-        setShowNotifications(false);
       }
     };
 
@@ -43,24 +42,6 @@ export default function Header() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  const mockNotifications = [
-    {
-      id: 1,
-      text: "Bài tập Writing Task 2 của bạn đã được Mentor nhận xét.",
-      time: "10 phút trước",
-    },
-    {
-      id: 2,
-      text: "Khóa học IELTS Masterclass 7.5+ có chương học mới.",
-      time: "2 giờ trước",
-    },
-    {
-      id: 3,
-      text: "Chúc mừng! Bạn đã đạt chuỗi 5 ngày học liên tiếp.",
-      time: "1 ngày trước",
-    },
-  ];
 
   const navLinks = [
     { label: "Khóa Học", href: "/courses" },
@@ -75,7 +56,6 @@ export default function Header() {
 
   const handleLogout = () => {
     setShowMobileMenu(false);
-    setShowNotifications(false);
     setShowUserMenu(false);
     logout();
   };
@@ -122,56 +102,14 @@ export default function Header() {
         <div className="flex items-center gap-2 sm:gap-4">
           {isAuthenticated ? (
             <div className="relative flex items-center gap-2 sm:gap-3">
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNotifications((value) => !value);
-                    setShowUserMenu(false);
-                  }}
-                  className="relative rounded-xl p-2.5 text-gray-500 transition-all hover:bg-gray-100 hover:text-primary"
-                  aria-label="Mở thông báo"
-                >
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
-                </button>
-
-                {showNotifications && (
-                  <div className="animate-fade-in absolute right-0 z-50 mt-2 w-[calc(100vw-2rem)] rounded-2xl border border-gray-100 bg-white py-3 shadow-xl sm:w-80">
-                    <div className="flex items-center justify-between border-b border-gray-50 px-4 pb-2">
-                      <span className="text-sm font-bold text-gray-900">Thông báo</span>
-                      <button
-                        type="button"
-                        className="text-2xs font-bold text-primary hover:underline"
-                      >
-                        Đánh dấu đã đọc
-                      </button>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      {mockNotifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="cursor-pointer border-b border-gray-50 px-4 py-3 transition-colors last:border-0 hover:bg-gray-50"
-                        >
-                          <p className="line-clamp-2 text-xs font-semibold text-gray-800">
-                            {notification.text}
-                          </p>
-                          <span className="mt-1 block text-2xs text-gray-400">
-                            {notification.time}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Notification dropdown */}
+              <NotificationDropdown token={token ?? null} />
 
               <div ref={userMenuRef} className="relative">
                 <button
                   type="button"
                   onClick={() => {
                     setShowUserMenu((value) => !value);
-                    setShowNotifications(false);
                   }}
                   className="flex items-center gap-2 rounded-full border border-gray-100 bg-gray-50 p-1 transition hover:border-pink-100 hover:bg-pink-50 sm:pl-2 sm:pr-3"
                   aria-label="Mở menu tài khoản"
@@ -265,7 +203,7 @@ export default function Header() {
           ) : (
             <div className="hidden items-center gap-4 sm:flex">
               <Link
-                href="/login"
+                href="/student/login"
                 className="text-sm font-bold text-gray-500 transition-colors hover:text-primary"
               >
                 Đăng nhập
@@ -283,7 +221,6 @@ export default function Header() {
             type="button"
             onClick={() => {
               setShowMobileMenu((value) => !value);
-              setShowNotifications(false);
               setShowUserMenu(false);
             }}
             className="inline-flex items-center justify-center rounded-xl border border-gray-100 bg-white p-2.5 text-gray-500 shadow-sm transition hover:text-primary md:hidden"
@@ -339,7 +276,7 @@ export default function Header() {
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
               <Link
-                href="/login"
+                href="/student/login"
                 onClick={() => setShowMobileMenu(false)}
                 className="rounded-xl border border-gray-100 px-4 py-3 text-center text-sm font-extrabold text-gray-600"
               >
