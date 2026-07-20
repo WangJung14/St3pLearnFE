@@ -6,9 +6,11 @@ import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { Search, Loader2, User, ChevronLeft, ChevronRight, Mail, Circle, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function AdminUsersPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [page, setPage] = useState(0);
   const size = 10;
   const [search, setSearch] = useState("");
@@ -83,7 +85,7 @@ export default function AdminUsersPage() {
               <div 
                 key={user.id} 
                 className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-amber-50/30 transition-colors cursor-pointer group"
-                onClick={() => alert(`Sẽ hiển thị Modal chi tiết User ${user.username} trong các bản cập nhật tới!`)}
+                onClick={() => router.push(`/admin/users/${user.id}`)}
               >
                 <div className="col-span-1 text-center text-xs font-bold text-gray-400">
                   {page * size + idx + 1}
