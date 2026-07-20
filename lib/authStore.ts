@@ -75,7 +75,7 @@ interface AuthState {
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; message?: string }>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message?: string }>;
   resetPassword: (data: ResetPasswordData) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
   hydrate: () => void;
 }
@@ -427,7 +427,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ---------------------------------------------------------------------------
   // logout
   // ---------------------------------------------------------------------------
-  logout: () => {
+  logout: async () => {
+    const token = get().token;
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          }
+        });
+      } catch (e) {
+        // Bỏ qua lỗi mạng
+      }
+    }
+
     set({ token: null, user: null, isAuthenticated: false });
 
     const tokenKey = getRoleStorageKey("st3p_token");
