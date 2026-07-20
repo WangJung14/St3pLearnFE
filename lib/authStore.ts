@@ -57,6 +57,12 @@ export interface AuthResult {
   redirectTo?: string;
 }
 
+export interface ResetPasswordData {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
 interface AuthState {
   token: string | null;
   user: User | null;
@@ -67,6 +73,8 @@ interface AuthState {
   register: (data: RegisterData) => Promise<AuthResult>;
   verifyEmail: (email: string, otp: string) => Promise<{ success: boolean; message?: string }>;
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; message?: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message?: string }>;
+  resetPassword: (data: ResetPasswordData) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   hydrate: () => void;
@@ -348,6 +356,68 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return {
         success: false,
         message: (body?.message as string) ?? "Không thể gửi lại mã xác thực.",
+      };
+    } catch {
+      return { success: false, message: "Lỗi kết nối server" };
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // forgotPassword
+  // ---------------------------------------------------------------------------
+  forgotPassword: async (email: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (res.ok) {
+        return { success: true };
+      }
+
+      let body: Record<string, unknown> | null = null;
+      try {
+        body = (await res.json()) as Record<string, unknown>;
+      } catch {
+        // ignore
+      }
+
+      return {
+        success: false,
+        message: (body?.message as string) ?? "Không thể gửi yêu cầu đặt lại mật khẩu.",
+      };
+    } catch {
+      return { success: false, message: "Lỗi kết nối server" };
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // resetPassword
+  // ---------------------------------------------------------------------------
+  resetPassword: async (data: ResetPasswordData) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        return { success: true };
+      }
+
+      let body: Record<string, unknown> | null = null;
+      try {
+        body = (await res.json()) as Record<string, unknown>;
+      } catch {
+        // ignore
+      }
+
+      return {
+        success: false,
+        message: (body?.message as string) ?? "Đặt lại mật khẩu thất bại. Mã OTP không hợp lệ.",
       };
     } catch {
       return { success: false, message: "Lỗi kết nối server" };

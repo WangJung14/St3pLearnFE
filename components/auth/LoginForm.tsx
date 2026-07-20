@@ -231,16 +231,12 @@ export function LoginForm({ roleName, rolePath }: LoginFormProps) {
                   Duy trì đăng nhập
                 </label>
               </div>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  toast.info("Khôi phục mật khẩu", "Vui lòng liên hệ support@St3pLearn.com để được hỗ trợ.");
-                }}
+              <Link
+                href="/reset-password"
                 className="text-primary hover:opacity-85 transition-opacity"
               >
                 Quên mật khẩu?
-              </a>
+              </Link>
             </div>
 
             {/* Nút gửi form đăng nhập */}
