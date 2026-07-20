@@ -12,6 +12,7 @@ import ChapterAccordion, { Chapter } from "@/components/courses/ChapterAccordion
 import CourseCheckoutCard, { CourseDetail } from "@/components/courses/CourseCheckoutCard";
 import VideoModal from "@/components/courses/VideoModal";
 import ReviewForm from "@/components/courses/ReviewForm";
+import PublicUserProfileModal from "@/components/ui/PublicUserProfileModal";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/components/ui/Toast";
@@ -38,6 +39,7 @@ interface Review {
   reviewText?: string;
   comment?: string;
   authorName?: string;
+  authorPublicId?: string;
   authorAvatarUrl?: string;
   createdAt?: string;
 }
@@ -68,6 +70,7 @@ const MOCK_DETAILS: Record<string, CourseDetail> = {
     price: 1200000,
     level: "IELTS",
     instructorName: "Teacher Tommy",
+    instructorPublicId: "tommy123",
     avgRating: 4.8,
     totalStudents: 3450,
     curriculum: [
@@ -156,6 +159,7 @@ const MOCK_DETAILS: Record<string, CourseDetail> = {
     price: 500000,
     level: "B1",
     instructorName: "Teacher Sarah",
+    instructorPublicId: "sarah123",
     avgRating: 4.6,
     totalStudents: 8900,
     curriculum: [
@@ -215,6 +219,7 @@ const MOCK_DETAILS: Record<string, CourseDetail> = {
     price: 750000,
     level: "A2",
     instructorName: "Teacher Alex",
+    instructorPublicId: "alex123",
     avgRating: 4.7,
     totalStudents: 1820,
     curriculum: [
@@ -274,6 +279,7 @@ const MOCK_DETAILS: Record<string, CourseDetail> = {
     price: 600000,
     level: "B2",
     instructorName: "Teacher Jane",
+    instructorPublicId: "jane123",
     avgRating: 4.9,
     totalStudents: 4230,
     curriculum: [
@@ -311,6 +317,7 @@ const MOCK_DETAILS: Record<string, CourseDetail> = {
     price: 950000,
     level: "TOEIC",
     instructorName: "Teacher Mark",
+    instructorPublicId: "mark123",
     avgRating: 4.5,
     totalStudents: 2900,
     curriculum: [
@@ -348,6 +355,7 @@ const MOCK_DETAILS: Record<string, CourseDetail> = {
     price: 1100000,
     level: "C1",
     instructorName: "Teacher Emma",
+    instructorPublicId: "emma123",
     avgRating: 4.7,
     totalStudents: 1250,
     curriculum: [
@@ -389,9 +397,14 @@ export default function CourseDetailPage({
   const [activePreviewVideo, setActivePreviewVideo] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewActionId, setReviewActionId] = useState<string | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedPublicId, setSelectedPublicId] = useState<string | null>(null);
   const [editingReviewText, setEditingReviewText] = useState("");
   const [editingReviewRating, setEditingReviewRating] = useState(5);
-  const [reviewActionId, setReviewActionId] = useState<string | null>(null);
   const { token, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const toast = useToast();
@@ -697,7 +710,18 @@ export default function CourseDetailPage({
                   <div className="flex items-center gap-1">
                     <Users className="w-5 h-5 text-white/70" />
                     <span>
-                      Giảng viên: <strong>{courseData?.instructorName ?? "St3pLearn Team"}</strong>
+                      Giảng viên:{" "}
+                      <button 
+                        onClick={() => {
+                          if (courseData?.instructorPublicId) {
+                            setSelectedPublicId(courseData.instructorPublicId);
+                            setIsProfileModalOpen(true);
+                          }
+                        }}
+                        className={`font-bold transition-colors ${courseData?.instructorPublicId ? "hover:text-primary-container hover:underline" : ""}`}
+                      >
+                        {courseData?.instructorName ?? "St3pLearn Team"}
+                      </button>
                     </span>
                   </div>
                 </div>
@@ -811,9 +835,16 @@ export default function CourseDetailPage({
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <span className="font-semibold text-gray-900 text-sm">
+                              <button
+                                onClick={() => {
+                                  const pubId = review.authorPublicId || "student123";
+                                  setSelectedPublicId(pubId);
+                                  setIsProfileModalOpen(true);
+                                }}
+                                className="font-semibold text-gray-900 text-sm hover:text-primary hover:underline transition-colors"
+                              >
                                 {reviewerName}
-                              </span>
+                              </button>
                               <div className="flex items-center gap-2">
                                 {isOwnReview && !isEditing && (
                                   <div className="flex items-center gap-1">
@@ -960,6 +991,13 @@ export default function CourseDetailPage({
       <VideoModal
         activePreviewVideo={activePreviewVideo}
         onClose={() => setActivePreviewVideo(null)}
+      />
+
+      {/* Public Profile Modal */}
+      <PublicUserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        publicId={selectedPublicId}
       />
 
       <Footer />

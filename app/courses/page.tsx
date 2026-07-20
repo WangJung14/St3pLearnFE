@@ -28,6 +28,7 @@ const MOCK_COURSES: Course[] = [
     avgRating: 4.8,
     totalStudents: 3450,
     instructorName: "Teacher Tommy",
+    instructorPublicId: "tommy123",
     categories: [{ name: "Speaking" }]
   },
   {
@@ -41,6 +42,7 @@ const MOCK_COURSES: Course[] = [
     avgRating: 4.6,
     totalStudents: 8900,
     instructorName: "Teacher Sarah",
+    instructorPublicId: "sarah123",
     categories: [{ name: "Grammar" }]
   },
   {
@@ -54,6 +56,7 @@ const MOCK_COURSES: Course[] = [
     avgRating: 4.7,
     totalStudents: 1820,
     instructorName: "Teacher Alex",
+    instructorPublicId: "alex123",
     categories: [{ name: "Listening" }]
   },
   {
@@ -67,6 +70,7 @@ const MOCK_COURSES: Course[] = [
     avgRating: 4.9,
     totalStudents: 4230,
     instructorName: "Teacher Jane",
+    instructorPublicId: "jane123",
     categories: [{ name: "Vocabulary" }]
   },
   {
@@ -80,6 +84,7 @@ const MOCK_COURSES: Course[] = [
     avgRating: 4.5,
     totalStudents: 2900,
     instructorName: "Teacher Mark",
+    instructorPublicId: "mark123",
     categories: [{ name: "Grammar" }]
   },
   {
@@ -93,6 +98,7 @@ const MOCK_COURSES: Course[] = [
     avgRating: 4.7,
     totalStudents: 1250,
     instructorName: "Teacher Emma",
+    instructorPublicId: "emma123",
     categories: [{ name: "Writing" }]
   }
 ];
