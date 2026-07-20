@@ -84,6 +84,7 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
     footer: "Admin console - kiểm duyệt, taxonomy và vận hành nền tảng.",
     nav: [
       { label: "Tổng quan", href: "/admin", icon: LayoutDashboard },
+      { label: "Quản lý người dùng", href: "/admin/users", icon: Users },
       { label: "Quản lý khóa học", href: "/admin/courses", icon: BookOpen },
       { label: "Duyệt khóa học", href: "/admin/approvals", icon: ClipboardCheck },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
