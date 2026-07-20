@@ -11,7 +11,11 @@ import {
   Save,
   X,
   Loader2,
-  Edit2
+  Edit2,
+  ChevronRight,
+  Lock,
+  ArrowLeft,
+  Activity
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -91,9 +95,9 @@ function SettingsContent() {
       {/* Content */}
       <div className="pt-2">
         {activeTab === "profile" && <ProfileSettingsTab token={token} />}
-        {activeTab === "security" && <PlaceholderTab title="Bảo mật & đăng nhập" description="Tính năng đổi mật khẩu và quản lý 2FA sẽ được cập nhật sớm." />}
-        {activeTab === "history" && <PlaceholderTab title="Lịch sử hoạt động" description="Lịch sử đăng nhập và các phiên hoạt động trên thiết bị của bạn." />}
-        {activeTab === "danger" && <PlaceholderTab title="Danger Zone" description="Vô hiệu hóa hoặc xóa tài khoản vĩnh viễn." danger />}
+        {activeTab === "security" && <SecuritySettingsTab token={token} />}
+        {activeTab === "history" && <HistorySettingsTab token={token} />}
+        {activeTab === "danger" && <DangerSettingsTab token={token} />}
       </div>
     </div>
   );
@@ -373,6 +377,345 @@ function ViewField({ label, value }: { label: string, value?: string }) {
     <div className="space-y-1">
       <span className="text-3xs font-extrabold uppercase text-gray-400 tracking-wider">{label}</span>
       <p className="text-sm font-semibold text-gray-800">{value || <span className="text-gray-300 italic">Chưa cập nhật</span>}</p>
+    </div>
+  );
+}
+
+function SecuritySettingsTab({ token }: { token: string | null }) {
+  const [activeView, setActiveView] = useState<"list" | "changePassword">("list");
+
+  if (activeView === "changePassword") {
+    return <ChangePasswordForm token={token} onBack={() => setActiveView("list")} />;
+  }
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-soft overflow-hidden animate-fade-in">
+      <div className="p-6 border-b border-gray-50">
+        <h2 className="text-sm font-extrabold text-gray-900">Bảo mật & đăng nhập</h2>
+        <p className="text-xs text-gray-500">Quản lý mật khẩu và các phương thức bảo mật.</p>
+      </div>
+      <div className="p-2">
+        <button
+          onClick={() => setActiveView("changePassword")}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Đổi mật khẩu</h3>
+              <p className="text-xs text-gray-500">Cập nhật mật khẩu mới để bảo vệ tài khoản tốt hơn.</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const changePasswordSchema = z.object({
+  oldPassword: z.string().min(1, "Vui lòng nhập mật khẩu cũ."),
+  newPassword: z.string().min(8, "Mật khẩu mới cần ít nhất 8 ký tự."),
+  retypeNewPassword: z.string().min(1, "Vui lòng nhập lại mật khẩu mới."),
+}).refine(data => data.newPassword === data.retypeNewPassword, {
+  message: "Mật khẩu nhập lại không khớp.",
+  path: ["retypeNewPassword"],
+});
+
+type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
+
+function ChangePasswordForm({ token, onBack }: { token: string | null; onBack: () => void }) {
+  const toast = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<ChangePasswordFormValues>({
+    resolver: zodResolver(changePasswordSchema),
+  });
+
+  const onSubmit = async (data: ChangePasswordFormValues) => {
+    if (!token) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/me/password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildAuthHeaders(token)
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || "Đổi mật khẩu thất bại");
+      }
+      
+      toast.success("Đổi mật khẩu thành công!");
+      reset();
+      onBack();
+    } catch (e: any) {
+      toast.error("Lỗi", e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const fieldClassName = (field: keyof ChangePasswordFormValues) =>
+    `w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all ${
+      errors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+    }`;
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-soft overflow-hidden animate-fade-in">
+      <div className="p-6 border-b border-gray-50 flex items-center gap-3">
+        <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div>
+          <h2 className="text-sm font-extrabold text-gray-900">Đổi mật khẩu</h2>
+          <p className="text-2xs text-gray-500">Vui lòng nhập mật khẩu hiện tại và mật khẩu mới.</p>
+        </div>
+      </div>
+      <div className="p-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 w-full md:w-1/2 mx-auto">
+          <div className="space-y-1.5">
+            <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Mật khẩu hiện tại</label>
+            <input type="password" {...register("oldPassword")} className={fieldClassName("oldPassword")} />
+            {errors.oldPassword && <p className="text-3xs font-bold text-red-500">{errors.oldPassword.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Mật khẩu mới</label>
+            <input type="password" {...register("newPassword")} className={fieldClassName("newPassword")} />
+            {errors.newPassword && <p className="text-3xs font-bold text-red-500">{errors.newPassword.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Nhập lại mật khẩu mới</label>
+            <input type="password" {...register("retypeNewPassword")} className={fieldClassName("retypeNewPassword")} />
+            {errors.retypeNewPassword && <p className="text-3xs font-bold text-red-500">{errors.retypeNewPassword.message}</p>}
+          </div>
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="w-full flex items-center justify-center gap-1.5 px-6 py-3 bg-primary hover:opacity-90 text-white rounded-xl text-xs font-extrabold shadow-md shadow-pink-200 transition-all disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+              Xác nhận đổi mật khẩu
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function HistorySettingsTab({ token }: { token: string | null }) {
+  const [page, setPage] = useState(0);
+  const size = 10;
+
+  const { data, isLoading, error } = useSWR(
+    token ? [`${API_BASE_URL}/api/users/me/login-history?page=${page}&size=${size}`, token] : null,
+    async ([url, t]) => {
+      const res = await fetch(url, { headers: buildAuthHeaders(t) });
+      if (!res.ok) throw new Error("Fetch failed");
+      const body = await res.json();
+      return body.data;
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const logs = data?.content || [];
+  const totalPages = data?.totalPages || 0;
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-soft overflow-hidden animate-fade-in">
+      <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-extrabold text-gray-900">Lịch sử hoạt động</h2>
+          <p className="text-xs text-gray-500">Các phiên đăng nhập và hoạt động gần đây của bạn.</p>
+        </div>
+      </div>
+      
+      <div className="p-0">
+        {isLoading ? (
+          <div className="p-10 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            <p className="text-xs font-semibold text-gray-400">Đang tải lịch sử...</p>
+          </div>
+        ) : error ? (
+          <div className="p-10 text-center text-red-500 text-xs font-bold">Lỗi khi tải lịch sử hoạt động.</div>
+        ) : logs.length === 0 ? (
+          <div className="p-10 text-center text-gray-500 text-xs font-bold">Chưa có lịch sử hoạt động nào.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {logs.map((log: any, idx: number) => (
+              <div key={log.logId || idx} className="p-4 px-6 flex items-start gap-4 hover:bg-gray-50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900">{log.eventType || "Đăng nhập thành công"}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Thời gian: {new Date(log.timestamp).toLocaleString("vi-VN")}</p>
+                  {log.metadata && Object.keys(log.metadata).length > 0 && (
+                    <div className="mt-3 text-xs text-gray-600 bg-white border border-gray-100 shadow-sm p-3 rounded-xl flex flex-col gap-1.5">
+                      {Object.entries(log.metadata).map(([key, value]) => (
+                        <div key={key} className="flex items-start gap-2">
+                          <span className="font-extrabold capitalize min-w-[70px] text-gray-700">{key}:</span>
+                          <span className="text-gray-500 break-all">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="p-4 border-t border-gray-50 flex items-center justify-between bg-gray-50/50">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-4 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+          >
+            Trang trước
+          </button>
+          <span className="text-xs font-bold text-gray-500">
+            Trang {page + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-4 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+          >
+            Trang sau
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DangerSettingsTab({ token }: { token: string | null }) {
+  const [activeView, setActiveView] = useState<"list" | "deleteAccount">("list");
+
+  if (activeView === "deleteAccount") {
+    return <DeleteAccountForm token={token} onBack={() => setActiveView("list")} />;
+  }
+
+  return (
+    <div className="bg-white rounded-3xl border border-red-100 shadow-soft overflow-hidden animate-fade-in">
+      <div className="p-6 border-b border-red-50 bg-red-50/30">
+        <h2 className="text-sm font-extrabold text-red-600">Danger Zone</h2>
+        <p className="text-xs text-red-400">Khu vực nguy hiểm, các hành động tại đây không thể hoàn tác.</p>
+      </div>
+      <div className="p-2">
+        <button
+          onClick={() => setActiveView("deleteAccount")}
+          className="w-full flex items-center justify-between p-4 hover:bg-red-50 rounded-xl transition-colors text-left group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 group-hover:text-red-600 transition-colors">Xóa tài khoản</h3>
+              <p className="text-xs text-gray-500">Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu của bạn.</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-red-400 transition-colors" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DeleteAccountForm({ token, onBack }: { token: string | null; onBack: () => void }) {
+  const toast = useToast();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmUsername, setConfirmUsername] = useState("");
+
+  const expectedUsername = user?.username || "";
+  const isMatch = confirmUsername === expectedUsername;
+
+  const handleDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !isMatch) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/me`, {
+        method: "DELETE",
+        headers: buildAuthHeaders(token)
+      });
+      
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || "Xóa tài khoản thất bại");
+      }
+      
+      toast.success("Tài khoản của bạn đã được xóa thành công");
+      await logout();
+      router.replace("/login");
+    } catch (e: any) {
+      toast.error("Lỗi", e.message);
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-red-100 shadow-soft overflow-hidden animate-fade-in">
+      <div className="p-6 border-b border-red-50 bg-red-50/30 flex items-center gap-3">
+        <button onClick={onBack} className="p-2 -ml-2 hover:bg-white rounded-lg text-red-400 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <div>
+          <h2 className="text-sm font-extrabold text-red-600">Xác nhận xóa tài khoản</h2>
+          <p className="text-2xs text-red-400">Hành động này không thể hoàn tác.</p>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-6">
+          <div className="flex gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+            <div className="space-y-1 text-xs text-red-600">
+              <p className="font-bold">Cảnh báo quan trọng!</p>
+              <p>Bạn đang yêu cầu xóa tài khoản. Tất cả dữ liệu, khóa học và thành tích của bạn sẽ bị mất vĩnh viễn.</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleDelete} className="space-y-5 w-full md:w-1/2 mx-auto">
+          <div className="space-y-1.5">
+            <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">
+              Vui lòng nhập <span className="text-red-500">{expectedUsername}</span> để xác nhận
+            </label>
+            <input 
+              type="text" 
+              value={confirmUsername}
+              onChange={(e) => setConfirmUsername(e.target.value)}
+              className="w-full text-xs rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-red-400 focus:border-transparent outline-none transition-all"
+              placeholder={expectedUsername}
+            />
+          </div>
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={!isMatch || isDeleting}
+              className="w-full flex items-center justify-center gap-1.5 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-extrabold shadow-md shadow-red-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+              Xóa vĩnh viễn tài khoản
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
