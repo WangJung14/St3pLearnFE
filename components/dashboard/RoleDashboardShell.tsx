@@ -188,14 +188,14 @@ export function RoleDashboardShell({ role, children }: RoleDashboardShellProps) 
               <Home className="h-4 w-4" />
               Trang chủ
             </Link>
-            <div className="flex min-w-0 items-center gap-2 rounded-full border border-gray-100 bg-gray-50 p-1 pr-3">
+            <Link href="/settings" className="flex min-w-0 items-center gap-2 rounded-full border border-gray-100 bg-gray-50 p-1 pr-3 hover:bg-gray-100 transition-colors">
               <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-black text-white", config.accent)}>
                 {initial}
               </span>
               <span className="hidden max-w-36 truncate text-xs font-extrabold text-gray-700 sm:block">
                 {user?.fullName || user?.username || user?.email || config.badge}
               </span>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
