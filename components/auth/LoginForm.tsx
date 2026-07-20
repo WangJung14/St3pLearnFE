@@ -50,10 +50,24 @@ export function LoginForm({ roleName, rolePath }: LoginFormProps) {
     try {
       const res = await login(data.email, data.password);
       if (res.success) {
+        // Kiểm tra xem email đã được xác thực chưa
+        if (res.user?.emailVerified === false) {
+          toast.warning("Tài khoản chưa được xác thực", "Vui lòng xác thực email của bạn.");
+          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+          return;
+        }
+
         toast.success("Đăng nhập thành công", "Đang chuyển bạn vào dashboard.");
         router.push(redirectUrl ?? res.redirectTo ?? getRoleHomePath(res.role));
       } else {
-        toast.error("Đăng nhập thất bại", res.message || "Vui lòng kiểm tra lại thông tin.");
+        // Nếu API trả về lỗi có chứa từ khóa liên quan đến việc chưa xác thực
+        const errorMsg = res.message?.toLowerCase() || "";
+        if (errorMsg.includes("xác thực") || errorMsg.includes("verify") || errorMsg.includes("verified")) {
+          toast.warning("Tài khoản chưa được xác thực", "Đang chuyển hướng để xác thực.");
+          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+        } else {
+          toast.error("Đăng nhập thất bại", res.message || "Vui lòng kiểm tra lại thông tin.");
+        }
       }
     } catch (error) {
       console.error("Lỗi đăng nhập:", error);

@@ -39,6 +39,7 @@ export interface User {
   avatarUrl?: string;
   username?: string;
   role?: string;
+  emailVerified?: boolean;
 }
 
 export interface RegisterData {
@@ -64,6 +65,8 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (data: RegisterData) => Promise<AuthResult>;
+  verifyEmail: (email: string, otp: string) => Promise<{ success: boolean; message?: string }>;
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   hydrate: () => void;
@@ -206,6 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             avatarUrl: (meData?.avatarUrl ?? meData?.avatar) as string | undefined,
             username: (meData?.username ?? data?.username) as string | undefined,
             role: resolvedRole,
+            emailVerified: meData?.emailVerified as boolean | undefined,
           };
         } else {
           // Fallback: decode JWT
@@ -220,6 +224,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           avatarUrl: data?.avatarUrl as string | undefined,
           username: data?.username as string | undefined,
           role: normalizeRole(payload?.role as string | undefined),
+          emailVerified: payload?.emailVerified as boolean | undefined,
         };
       }
 
@@ -281,6 +286,68 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return {
         success: false,
         message: (body?.message as string) ?? "Đăng ký thất bại. Vui lòng thử lại.",
+      };
+    } catch {
+      return { success: false, message: "Lỗi kết nối server" };
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // verifyEmail
+  // ---------------------------------------------------------------------------
+  verifyEmail: async (email: string, otp: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      if (res.ok) {
+        return { success: true };
+      }
+
+      let body: Record<string, unknown> | null = null;
+      try {
+        body = (await res.json()) as Record<string, unknown>;
+      } catch {
+        // ignore
+      }
+
+      return {
+        success: false,
+        message: (body?.message as string) ?? "Mã xác thực không hợp lệ hoặc đã hết hạn.",
+      };
+    } catch {
+      return { success: false, message: "Lỗi kết nối server" };
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // resendVerificationEmail
+  // ---------------------------------------------------------------------------
+  resendVerificationEmail: async (email: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/resend-verification-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (res.ok) {
+        return { success: true };
+      }
+
+      let body: Record<string, unknown> | null = null;
+      try {
+        body = (await res.json()) as Record<string, unknown>;
+      } catch {
+        // ignore
+      }
+
+      return {
+        success: false,
+        message: (body?.message as string) ?? "Không thể gửi lại mã xác thực.",
       };
     } catch {
       return { success: false, message: "Lỗi kết nối server" };

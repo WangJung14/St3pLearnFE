@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const router = useRouter();
-  const { register: authRegister } = useAuth();
+  const { register: authRegister, resendVerificationEmail } = useAuth();
   const toast = useToast();
 
   const {
@@ -36,8 +36,7 @@ export default function RegisterPage() {
   });
 
   const inputClassName = (field: keyof RegisterFormValues) =>
-    `w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all bg-white ${
-      errors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
+    `w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none transition-all bg-white ${errors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
     }`;
 
   // Xử lý đăng ký tài khoản mới qua AuthContext
@@ -53,8 +52,13 @@ export default function RegisterPage() {
       });
 
       if (result.success) {
-        toast.success("Đăng ký thành công", "Hãy đăng nhập bằng tài khoản mới.");
-        router.push("/login");
+        toast.success("Đăng ký thành công", "Đang gửi mã xác thực đến email của bạn...");
+        // Gọi API gửi email xác thực
+        if (resendVerificationEmail) {
+          await resendVerificationEmail(data.email);
+        }
+        // Chuyển hướng sang trang xác thực
+        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
       } else {
         const message = result.message ?? "Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.";
         setErrorMessage(message);
@@ -154,7 +158,7 @@ export default function RegisterPage() {
                       id="fullname"
                       type="text"
                       {...registerField("fullName")}
-                      placeholder="Nguyen Van A"
+                      placeholder=""
                       aria-invalid={Boolean(errors.fullName)}
                       className={inputClassName("fullName")}
                     />
@@ -167,13 +171,13 @@ export default function RegisterPage() {
                       htmlFor="username"
                       className="block text-2xs font-extrabold uppercase text-gray-400 tracking-wider"
                     >
-                      Tên đăng nhập
+                      Tên hiển thị
                     </label>
                     <input
                       id="username"
                       type="text"
                       {...registerField("username")}
-                      placeholder="nguyenvana123"
+                      placeholder=""
                       aria-invalid={Boolean(errors.username)}
                       className={inputClassName("username")}
                     />
@@ -195,7 +199,7 @@ export default function RegisterPage() {
                     id="email"
                     type="email"
                     {...registerField("email")}
-                    placeholder="name@example.com"
+                    placeholder=""
                     aria-invalid={Boolean(errors.email)}
                     className={inputClassName("email")}
                   />
