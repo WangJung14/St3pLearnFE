@@ -21,8 +21,15 @@ interface Course {
 
 interface PageData<T> { content?: T[] }
 
-function normalizeCourses(value: Course[] | PageData<Course>): Course[] {
-  return Array.isArray(value) ? value : value.content ?? [];
+function normalizeCourses(value: any): Course[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (value.data) {
+    if (Array.isArray(value.data)) return value.data;
+    if (value.data.content) return value.data.content;
+  }
+  if (value.content) return value.content;
+  return [];
 }
 
 export default function TeacherDashboard() {
