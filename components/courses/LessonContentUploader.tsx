@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Upload, MonitorPlay } from "lucide-react";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 
@@ -62,6 +62,13 @@ function unwrapData<T>(body: ApiResponse<T> | T): T {
   return (body as ApiResponse<T>).data ?? (body as T);
 }
 
+// Hàm trích xuất video ID từ link Youtube
+function extractYouTubeId(url: string) {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
 export default function LessonContentUploader({
   courseId,
   chapterId,
@@ -70,6 +77,8 @@ export default function LessonContentUploader({
   onUploaded,
 }: LessonContentUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [activeTab, setActiveTab] = useState<"upload" | "youtube">("upload");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -172,34 +181,142 @@ export default function LessonContentUploader({
     }
   };
 
+  const handleSaveYoutube = async () => {
+    setMessage("");
+    setErrorMessage("");
+
+    if (!token) {
+      setErrorMessage("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    const videoId = extractYouTubeId(youtubeUrl);
+    if (!videoId) {
+      setErrorMessage("Link YouTube không hợp lệ.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const saveRes = await fetch(
+        `${API_BASE_URL}/api/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildAuthHeaders(token),
+          },
+          body: JSON.stringify({
+            contentType: "VIDEO_YOUTUBE",
+            storageUrl: `https://www.youtube.com/embed/${videoId}`,
+            fileSize: 0,
+            metadata: {
+              videoId,
+              source: "youtube",
+            },
+          }),
+        }
+      );
+      const saveBody = await saveRes.json().catch(() => null) as { message?: string } | null;
+      if (!saveRes.ok) {
+        throw new Error(saveBody?.message ?? "Không lưu được nội dung YouTube");
+      }
+
+      setMessage("Đã lưu video YouTube thành công.");
+      setYoutubeUrl("");
+      await onUploaded();
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : "Lỗi khi lưu link YouTube";
+      setErrorMessage(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
-    <div className="space-y-2">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,application/pdf"
-        className="hidden"
-        onChange={(event) => handleFile(event.target.files?.[0])}
-      />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={isUploading}
-        className="inline-flex items-center gap-1 rounded-xl bg-secondary/10 px-3 py-2 text-3xs font-black text-secondary transition-colors hover:bg-secondary/20 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-        {isUploading ? "Đang upload..." : "Tải nội dung"}
-      </button>
+    <div className="space-y-4">
+      {/* Tabs */}
+      <div className="flex border-b border-gray-100">
+        <button
+          onClick={() => {
+            setActiveTab("upload");
+            setMessage("");
+            setErrorMessage("");
+          }}
+          className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 ${
+            activeTab === "upload" ? "border-primary text-primary" : "border-transparent text-gray-400 hover:text-gray-900"
+          }`}
+        >
+          Tải lên thiết bị
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("youtube");
+            setMessage("");
+            setErrorMessage("");
+          }}
+          className={`px-4 py-2 text-xs font-bold transition-colors flex items-center gap-1 border-b-2 ${
+            activeTab === "youtube" ? "border-primary text-primary" : "border-transparent text-gray-400 hover:text-gray-900"
+          }`}
+        >
+          <MonitorPlay className="w-4 h-4 text-red-500" />
+          Link YouTube
+        </button>
+      </div>
+
+      {activeTab === "upload" && (
+        <div className="space-y-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,application/pdf"
+            className="hidden"
+            onChange={(event) => handleFile(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isUploading}
+            className="inline-flex items-center gap-1 rounded-xl bg-secondary/10 px-3 py-2 text-3xs font-black text-secondary transition-colors hover:bg-secondary/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+            {isUploading ? "Đang xử lý..." : "Tải nội dung"}
+          </button>
+        </div>
+      )}
+
+      {activeTab === "youtube" && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Ví dụ: https://www.youtube.com/watch?v=..."
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              disabled={isUploading}
+              className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+            />
+            <button
+              onClick={handleSaveYoutube}
+              disabled={!youtubeUrl || isUploading}
+              className="inline-flex items-center gap-1 rounded-xl bg-red-500 hover:bg-red-600 px-3 py-2 text-3xs font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Lưu Video"}
+            </button>
+          </div>
+          <p className="text-3xs text-gray-400">Hỗ trợ các định dạng youtube.com/watch?v=... hoặc youtu.be/...</p>
+        </div>
+      )}
 
       {message && (
-        <p className="flex items-center gap-1 text-3xs font-bold text-emerald-600">
+        <p className="flex items-center gap-1 text-3xs font-bold text-emerald-600 mt-2">
           <CheckCircle2 className="h-3 w-3" />
           {message}
         </p>
       )}
 
       {errorMessage && (
-        <p className="flex max-w-xs items-start gap-1 text-3xs font-bold text-red-600">
+        <p className="flex max-w-xs items-start gap-1 text-3xs font-bold text-red-600 mt-2">
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{errorMessage}</span>
         </p>

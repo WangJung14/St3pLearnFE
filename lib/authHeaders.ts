@@ -18,13 +18,7 @@ export function buildAuthHeaders(
   token: string,
   fallbackRole = "TEACHER"
 ): Record<string, string> {
-  const payload = decodeJwtPayload(token);
-  const subject = payload?.sub;
-  const role = payload?.role;
-
   return {
     Authorization: `Bearer ${token}`,
-    "X-User-Id": typeof subject === "string" ? subject : "",
-    "X-User-Role": typeof role === "string" ? role : fallbackRole,
   };
 }

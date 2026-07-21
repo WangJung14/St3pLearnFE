@@ -64,25 +64,33 @@ export default function CourseTaxonomyForm({ courseId, token }: CourseTaxonomyFo
   const categoryIds = watch("categoryIds");
   const tagIds = watch("tagIds");
 
+  const fetcherWithAuth = async (url: string) => {
+    const headers = token ? buildAuthHeaders(token) : undefined;
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error("Không tải được dữ liệu phân loại");
+    const body = await res.json() as ApiResponse<any> | any;
+    return unwrapData(body);
+  };
+
   const {
     data: categories = [],
     error: categoriesError,
     isLoading: categoriesLoading,
   } = useSWR<TaxonomyItem[]>(
     `${API_BASE_URL}/api/categories`,
-    fetchJson,
+    fetcherWithAuth,
     { revalidateOnFocus: false }
   );
 
   const { data: tags = [], error: tagsError } = useSWR<TaxonomyItem[]>(
     `${API_BASE_URL}/api/tags`,
-    fetchJson,
+    fetcherWithAuth,
     { revalidateOnFocus: false }
   );
 
   const { data: courseSnapshot, mutate: mutateCourseSnapshot } = useSWR<CourseTaxonomySnapshot>(
     `${API_BASE_URL}/api/courses/${courseId}`,
-    fetchJson,
+    fetcherWithAuth,
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 

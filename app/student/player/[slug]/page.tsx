@@ -228,12 +228,21 @@ export default function LearningPlayerPage({
           {/* Media Player Screen */}
           <div className="w-full aspect-video rounded-3xl bg-black overflow-hidden shadow-lg border border-gray-100 relative group">
             {activeLesson.videoUrl ? (
-              <video
-                src={activeLesson.videoUrl}
-                controls
-                className="w-full h-full object-contain"
-                poster="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200"
-              />
+              activeLesson.videoUrl.includes("youtube.com/embed") || activeLesson.type === 'youtube' ? (
+                <iframe
+                  src={activeLesson.videoUrl}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={activeLesson.videoUrl}
+                  controls
+                  className="w-full h-full object-contain"
+                  poster="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200"
+                />
+              )
             ) : activeLesson.audioUrl ? (
               <div className="w-full h-full bg-gradient-to-tr from-gray-900 to-slate-800 flex flex-col justify-center items-center p-8 space-y-4">
                 <Volume2 className="w-16 h-16 text-primary animate-pulse" />
