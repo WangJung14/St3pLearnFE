@@ -265,6 +265,7 @@ export default function QuestionBanksPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </button>
+                          <button onClick={() => router.push(`/teacher/question-banks/${bank.id}/questions`)} className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">Câu hỏi</button>
                           <button
                             onClick={() => handleDelete(bank.id)}
                             className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 border border-red-100 transition-all cursor-pointer"

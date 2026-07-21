@@ -6,15 +6,17 @@ import {
   ArrowRight,
   BookOpen,
   ClipboardCheck,
-  FolderTree,
-  Hash,
   Loader2,
   ShieldAlert,
+  DollarSign,
+  UserPlus,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { unwrapData, unwrapPageContent, type ApiResponse, type PagePayload } from "@/lib/apiResponses";
+import type { DashboardMetrics } from "@/lib/endpointTypes";
 
 interface ApprovalSummary {
   approvalRequestId: string;
@@ -31,16 +33,6 @@ interface Course {
   status: string;
 }
 
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface Tag {
-  id: string;
-  name: string;
-}
-
 async function fetchAdminPage<T>([url, token]: readonly [string, string]): Promise<T[]> {
   const res = await fetch(url, { headers: buildAuthHeaders(token, "ADMIN") });
   if (!res.ok) throw new Error("Fetch admin data failed");
@@ -48,15 +40,18 @@ async function fetchAdminPage<T>([url, token]: readonly [string, string]): Promi
   return unwrapPageContent<T>(body);
 }
 
-async function fetchPublicList<T>(url: string): Promise<T[]> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Fetch public data failed");
-  const body = await res.json() as ApiResponse<T[]> | T[];
-  return unwrapData<T[]>(body);
-}
-
 export default function AdminDashboard() {
   const { token } = useAuth();
+
+  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useSWR<DashboardMetrics>(
+    token ? [`${API_BASE_URL}/api/admin/dashboard`, token] as const : null,
+    async ([url, currentToken]: readonly [string, string]) => {
+      const res = await fetch(url, { headers: buildAuthHeaders(currentToken, "ADMIN") });
+      if (!res.ok) throw new Error(`Dashboard API failed: HTTP ${res.status}`);
+      return unwrapData<DashboardMetrics>(await res.json() as ApiResponse<DashboardMetrics>);
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
 
   const { data: pendingApprovals = [], isLoading: pendingLoading } = useSWR<ApprovalSummary[]>(
     token ? [`${API_BASE_URL}/api/courses/approvals/pending?page=0&size=5`, token] as const : null,
@@ -70,24 +65,21 @@ export default function AdminDashboard() {
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  const { data: categories = [] } = useSWR<Category[]>(
-    `${API_BASE_URL}/api/categories`,
-    fetchPublicList,
-    { revalidateOnFocus: false, shouldRetryOnError: false }
-  );
-
-  const { data: tags = [] } = useSWR<Tag[]>(
-    `${API_BASE_URL}/api/tags`,
-    fetchPublicList,
-    { revalidateOnFocus: false, shouldRetryOnError: false }
-  );
-
   const publishedCourses = courses.filter((course) => course.status === "PUBLISHED").length;
   const draftCourses = courses.filter((course) => course.status === "DRAFT").length;
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Doanh thu tháng", value: metrics ? new Intl.NumberFormat("vi-VN").format(metrics.monthlyRevenue) : "—", icon: DollarSign },
+          { label: "Học viên mới hôm nay", value: metrics?.newStudentsToday ?? "—", icon: UserPlus },
+          { label: "Active 7 ngày", value: metrics?.activeUsersLast7Days ?? "—", icon: Activity },
+          { label: "Báo cáo chờ xử lý", value: metrics?.pendingReports ?? "—", icon: ShieldAlert },
+        ].map((item) => <div key={item.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-soft"><item.icon className="mb-2 h-5 w-5 text-primary" /><div className="text-xl font-black">{metricsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : item.value}</div><div className="text-xs font-bold text-gray-500">{item.label}</div></div>)}
+      </section>
+      {metricsError && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{metricsError.message}</div>}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
           <div className="flex items-center gap-4">
             <div className="rounded-2xl bg-amber-50 p-4 text-amber-600">
@@ -116,29 +108,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-          <div className="flex items-center gap-4">
-            <div className="rounded-2xl bg-pink-50 p-4 text-primary">
-              <FolderTree className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="block text-2xl font-black text-gray-900">{categories.length}</span>
-              <span className="text-2xs font-extrabold uppercase tracking-wider text-gray-400">Danh mục</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-          <div className="flex items-center gap-4">
-            <div className="rounded-2xl bg-purple-50 p-4 text-purple-500">
-              <Hash className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="block text-2xl font-black text-gray-900">{tags.length}</span>
-              <span className="text-2xs font-extrabold uppercase tracking-wider text-gray-400">Tag</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -187,21 +156,6 @@ export default function AdminDashboard() {
         </section>
 
         <section className="space-y-4">
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-            <h2 className="text-base font-black text-gray-900">Quản trị taxonomy</h2>
-            <p className="mt-1 text-xs leading-relaxed text-gray-500">Quản lý danh mục và tag để giáo viên phân loại khóa học.</p>
-            <div className="mt-5 grid grid-cols-1 gap-3">
-              <Link href="/admin/categories" className="flex items-center justify-between rounded-2xl bg-pink-50 px-4 py-3 text-xs font-extrabold text-primary hover:bg-pink-100">
-                Danh mục
-                <FolderTree className="h-4 w-4" />
-              </Link>
-              <Link href="/admin/tags" className="flex items-center justify-between rounded-2xl bg-blue-50 px-4 py-3 text-xs font-extrabold text-secondary hover:bg-blue-100">
-                Tag
-                <Hash className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-
           <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
             <h2 className="text-base font-black text-gray-900">Tổng quan khóa học</h2>
             <div className="mt-4 grid grid-cols-2 gap-3">

@@ -8,12 +8,13 @@ import {
   BookOpen,
   Brain,
   ClipboardCheck,
+  ClipboardList,
   Compass,
   Flag,
   FolderTree,
-  Hash,
   Heart,
   Home,
+  Hash,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -22,6 +23,9 @@ import {
   Sparkles,
   UserCheck,
   Users,
+  Wrench,
+  FileWarning,
+  CreditCard,
 } from "lucide-react";
 import { useAuth, type UserRole } from "@/context/AuthContext";
 import { getRoleFromToken, getRoleHomePath } from "@/lib/roleRoutes";
@@ -58,7 +62,9 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
       { label: "Khóa học", href: "/courses", icon: BookOpen },
       { label: "Wishlist", href: "/student/wishlist", icon: Heart },
       { label: "Từ vựng", href: "/student/vocabulary", icon: Brain },
+      { label: "Bài thi", href: "/student/exams", icon: ClipboardList },
       { label: "Chứng chỉ", href: "/student/certificates", icon: Award },
+      { label: "Thanh toán", href: "/student/payments", icon: CreditCard },
     ],
   },
   TEACHER: {
@@ -73,6 +79,9 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
       { label: "Khóa học của tôi", href: "/teacher/courses", icon: BookOpen },
       { label: "Tạo khóa học", href: "/teacher/courses/new", icon: PlusCircle },
       { label: "Ngân hàng câu hỏi", href: "/teacher/question-banks", icon: Brain },
+      { label: "Bài thi", href: "/teacher/exams", icon: ClipboardList },
+      { label: "Learning tools", href: "/teacher/learning-tools", icon: Wrench },
+      { label: "Coupons", href: "/teacher/payments", icon: CreditCard },
     ],
   },
   ADMIN: {
@@ -81,7 +90,7 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
     accent: "from-amber-500 to-rose-500",
     active: "bg-amber-50 text-amber-700 border-amber-100",
     icon: ShieldCheck,
-    footer: "Admin console - kiểm duyệt, taxonomy và vận hành nền tảng.",
+    footer: "Admin console - kiểm duyệt và vận hành nền tảng.",
     nav: [
       { label: "Tổng quan", href: "/admin", icon: LayoutDashboard },
       { label: "Quản lý người dùng", href: "/admin/users", icon: Users },
@@ -89,6 +98,8 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
       { label: "Duyệt khóa học", href: "/admin/approvals", icon: ClipboardCheck },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
       { label: "Tags", href: "/admin/tags", icon: Hash },
+      { label: "Reports", href: "/admin/reports", icon: FileWarning },
+      { label: "Payments", href: "/admin/payments", icon: CreditCard },
       { label: "Public catalog", href: "/courses", icon: BookOpen },
     ],
   },

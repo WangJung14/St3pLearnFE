@@ -20,6 +20,13 @@
 
 import { API_BASE_URL } from "./apiConfig";
 import { getRoleStorageKey, getActiveRoleContext } from "./activeRoleHelper";
+import { buildAuthHeaders } from "./authHeaders";
+
+export type ApiResponseType = "json" | "blob" | "text";
+
+export interface ApiFetchOptions {
+  responseType?: ApiResponseType;
+}
 
 let isRefreshing = false;
 let pendingCallbacks: Array<(token: string | null) => void> = [];
@@ -92,13 +99,45 @@ async function tryRefreshToken(): Promise<string | null> {
  */
 export async function apiFetch<T = unknown>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  options: ApiFetchOptions = {}
 ): Promise<T> {
-  const buildHeaders = (token: string | null): Record<string, string> => ({
-    "Content-Type": "application/json",
-    ...(init.headers as Record<string, string>),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  });
+  const responseType = options.responseType ?? "json";
+  const buildHeaders = (token: string | null): Headers => {
+    const headers = new Headers(init.headers);
+    const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+
+    if (init.body && !isFormData && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    if (token) {
+      Object.entries(buildAuthHeaders(token)).forEach(([key, value]) => {
+        if (value && !headers.has(key)) headers.set(key, value);
+      });
+    }
+
+    return headers;
+  };
+
+  const parseResponse = async (res: Response): Promise<T> => {
+    if (res.status === 204) return undefined as T;
+    if (responseType === "blob") return await res.blob() as T;
+    if (responseType === "text") return await res.text() as T;
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
+  };
+
+  const parseError = async (res: Response): Promise<string> => {
+    const text = await res.text().catch(() => "");
+    if (!text) return `HTTP ${res.status}`;
+    try {
+      const body = JSON.parse(text) as { message?: string };
+      return body.message ?? `HTTP ${res.status}`;
+    } catch {
+      return text;
+    }
+  };
 
   const doFetch = (token: string | null) =>
     fetch(`${API_BASE_URL}${path}`, {
@@ -112,12 +151,9 @@ export async function apiFetch<T = unknown>(
   // Không gặp 401 → xử lý bình thường
   if (res.status !== 401) {
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      throw new Error(
-        (body as { message?: string })?.message ?? `HTTP ${res.status}`
-      );
+      throw new Error(await parseError(res));
     }
-    return res.json() as Promise<T>;
+    return parseResponse(res);
   }
 
   // --- 401: thử refresh token ---
@@ -152,11 +188,8 @@ export async function apiFetch<T = unknown>(
 
   // --- Retry sau refresh ---
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(
-      (body as { message?: string })?.message ?? `HTTP ${res.status}`
-    );
+    throw new Error(await parseError(res));
   }
 
-  return res.json() as Promise<T>;
+  return parseResponse(res);
 }

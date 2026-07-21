@@ -9,8 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { RoleGuard } from "@/components/guards/RoleGuard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { API_BASE_URL } from "@/lib/apiConfig";
-import { buildAuthHeaders } from "@/lib/authHeaders";
+import { apiFetch } from "@/lib/apiFetch";
 import { unwrapData, type ApiResponse } from "@/lib/apiResponses";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/Toast";
@@ -23,13 +22,6 @@ interface Category {
   id: string;
   name: string;
   slug?: string;
-}
-
-async function fetchCategories(url: string): Promise<Category[]> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Không tải được danh mục");
-  const body = await res.json() as ApiResponse<Category[]> | Category[];
-  return unwrapData<Category[]>(body);
 }
 
 export default function AdminCategoryPage() {
@@ -50,9 +42,9 @@ export default function AdminCategoryPage() {
   });
 
   const { data: categories = [], error, isLoading, mutate } = useSWR<Category[]>(
-    `${API_BASE_URL}/api/categories`,
-    fetchCategories,
-    { revalidateOnFocus: false }
+    token ? ["/api/categories", token] : null,
+    async ([path]: readonly [string, string]) => unwrapData<Category[]>(await apiFetch<ApiResponse<Category[]> | Category[]>(path)),
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
   const resetForm = () => {
@@ -64,19 +56,11 @@ export default function AdminCategoryPage() {
     if (!token) return;
     setIsSaving(true);
     try {
-      const endpoint = editing
-        ? `${API_BASE_URL}/api/categories/${editing.id}`
-        : `${API_BASE_URL}/api/categories`;
-      const res = await fetch(endpoint, {
+      const endpoint = editing ? `/api/categories/${editing.id}` : "/api/categories";
+      await apiFetch(endpoint, {
         method: editing ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...buildAuthHeaders(token, "ADMIN"),
-        },
         body: JSON.stringify({ name: data.name }),
       });
-      const body = await res.json().catch(() => null) as { message?: string } | null;
-      if (!res.ok) throw new Error(body?.message ?? "Lưu danh mục thất bại");
 
       resetForm();
       await mutate();
@@ -100,12 +84,9 @@ export default function AdminCategoryPage() {
     if (!window.confirm(`Xóa danh mục "${category.name}"?`)) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/categories/${category.id}`, {
+      await apiFetch(`/api/categories/${category.id}`, {
         method: "DELETE",
-        headers: buildAuthHeaders(token, "ADMIN"),
       });
-      const body = await res.json().catch(() => null) as { message?: string } | null;
-      if (!res.ok) throw new Error(body?.message ?? "Xóa danh mục thất bại");
 
       await mutate();
       toast.success("Đã xóa danh mục");
@@ -126,7 +107,7 @@ export default function AdminCategoryPage() {
               </Link>
               <div className="space-y-1">
                 <h1 className="text-2xl font-black text-gray-900">Quản lý danh mục</h1>
-                <p className="text-sm text-gray-500">Tạo, sửa và xóa category dùng cho taxonomy khóa học.</p>
+                <p className="text-sm text-gray-500">Tạo, sửa và xóa danh mục dùng cho bộ lọc catalog công khai.</p>
               </div>
             </div>
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 text-primary">
@@ -187,7 +168,7 @@ export default function AdminCategoryPage() {
                 <EmptyState title="Không tải được danh mục" description={error instanceof Error ? error.message : "Vui lòng thử lại."} />
               )}
               {!isLoading && !error && categories.length === 0 && (
-                <EmptyState title="Chưa có danh mục" description="Tạo danh mục đầu tiên để giáo viên gắn taxonomy cho khóa học." />
+                <EmptyState title="Chưa có danh mục" description="Tạo danh mục đầu tiên để sử dụng trong bộ lọc khóa học công khai." />
               )}
               {!isLoading && !error && categories.length > 0 && (
                 <Table>

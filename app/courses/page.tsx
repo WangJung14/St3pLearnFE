@@ -1,266 +1,86 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { BookOpen, RefreshCw } from "lucide-react";
+import { BookOpen, Loader2, RefreshCw, Search } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import CourseCard, { Course } from "@/components/courses/CourseCard";
-import FilterBar from "@/components/courses/FilterBar";
+import CourseCard, { type Course } from "@/components/courses/CourseCard";
 import { API_BASE_URL } from "@/lib/apiConfig";
+import { buildAuthHeaders } from "@/lib/authHeaders";
+import { unwrapData, unwrapPageContent, type ApiResponse, type PagePayload } from "@/lib/apiResponses";
+import { useAuth } from "@/context/AuthContext";
 
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-}
+interface Category { id: string; name: string; slug?: string }
 
-// Premium Mock Data Fallbacks
-const MOCK_COURSES: Course[] = [
-  {
-    id: "ielts-1",
-    title: "IELTS Masterclass: Step-by-Step 7.5+",
-    slug: "ielts-masterclass-step-by-step-7-5",
-    shortDescription: "Làm chủ cả 4 kỹ năng Nghe, Nói, Đọc, Viết chuẩn cấu trúc đề thi IELTS mới nhất cùng các chuyên gia hàng đầu.",
-    thumbnailUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop",
-    price: 1200000,
-    level: "IELTS",
-    avgRating: 4.8,
-    totalStudents: 3450,
-    instructorName: "Teacher Tommy",
-    instructorPublicId: "tommy123",
-    categories: [{ name: "Speaking" }]
-  },
-  {
-    id: "grammar-1",
-    title: "English Grammar for Beginners & Intermediate",
-    slug: "english-grammar-for-beginners-intermediate",
-    shortDescription: "Hệ thống hóa toàn bộ các chủ điểm ngữ pháp tiếng Anh cốt lõi từ cơ bản đến trung cấp cực kỳ dễ hiểu trong 30 ngày.",
-    thumbnailUrl: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=600&auto=format&fit=crop",
-    price: 500000,
-    level: "B1",
-    avgRating: 4.6,
-    totalStudents: 8900,
-    instructorName: "Teacher Sarah",
-    instructorPublicId: "sarah123",
-    categories: [{ name: "Grammar" }]
-  },
-  {
-    id: "listening-1",
-    title: "Listening & Pronunciation Secrets",
-    slug: "listening-pronunciation-secrets",
-    shortDescription: "Bí quyết nghe hiểu người bản xứ dễ dàng, sửa giọng nói chuẩn Mỹ và làm chủ ngữ điệu nói tự nhiên.",
-    thumbnailUrl: "https://images.unsplash.com/photo-1522881197277-c6cf5246ca88?q=80&w=600&auto=format&fit=crop",
-    price: 750000,
-    level: "A2",
-    avgRating: 4.7,
-    totalStudents: 1820,
-    instructorName: "Teacher Alex",
-    instructorPublicId: "alex123",
-    categories: [{ name: "Listening" }]
-  },
-  {
-    id: "vocabulary-1",
-    title: "Vocabulary Boost: 3000 Academic Words",
-    slug: "vocabulary-boost-3000-academic-words",
-    shortDescription: "Tăng tốc nâng cấp vốn từ vựng học thuật theo ngữ cảnh giúp bạn viết và nói tiếng Anh học thuật trôi chảy.",
-    thumbnailUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=600&auto=format&fit=crop",
-    price: 600000,
-    level: "B2",
-    avgRating: 4.9,
-    totalStudents: 4230,
-    instructorName: "Teacher Jane",
-    instructorPublicId: "jane123",
-    categories: [{ name: "Vocabulary" }]
-  },
-  {
-    id: "toeic-1",
-    title: "TOEIC 800+ Target Comprehensive Prep",
-    slug: "toeic-800-target-prep",
-    shortDescription: "Lộ trình ôn luyện giải đề thi TOEIC tối ưu nhất, ôn trọng tâm mẹo làm bài đọc hiểu và nghe hiểu.",
-    thumbnailUrl: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop",
-    price: 950000,
-    level: "TOEIC",
-    avgRating: 4.5,
-    totalStudents: 2900,
-    instructorName: "Teacher Mark",
-    instructorPublicId: "mark123",
-    categories: [{ name: "Grammar" }]
-  },
-  {
-    id: "writing-1",
-    title: "Academic Writing Excellence for Essays",
-    slug: "academic-writing-excellence",
-    shortDescription: "Rèn luyện tư duy viết luận mạch lạc, sử dụng các liên từ nối và cấu trúc học thuật nâng cao đạt điểm cao.",
-    thumbnailUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a?q=80&w=600&auto=format&fit=crop",
-    price: 1100000,
-    level: "C1",
-    avgRating: 4.7,
-    totalStudents: 1250,
-    instructorName: "Teacher Emma",
-    instructorPublicId: "emma123",
-    categories: [{ name: "Writing" }]
-  }
-];
-
-const MOCK_CATEGORIES: Category[] = [
-  { id: "cat-1", name: "Speaking", slug: "speaking" },
-  { id: "cat-2", name: "Listening", slug: "listening" },
-  { id: "cat-3", name: "Grammar", slug: "grammar" },
-  { id: "cat-4", name: "Vocabulary", slug: "vocabulary" },
-  { id: "cat-5", name: "Writing", slug: "writing" }
-];
+const levels = ["ALL", "A1", "A2", "B1", "B2", "C1", "C2", "IELTS", "TOEIC", "TOEFL"];
 
 export default function CoursesPage() {
+  const { token } = useAuth();
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedLevel, setSelectedLevel] = useState<string>("All");
-  const [sortField, setSortField] = useState("createdAt");
-  const [sortDirection, setSortDirection] = useState("DESC");
+  const [keyword, setKeyword] = useState("");
+  const [level, setLevel] = useState("ALL");
+  const [categoryId, setCategoryId] = useState("ALL");
+  const [sort, setSort] = useState("createdAt-DESC");
 
-  // tri hoan tim kiem xiu
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 400);
-    return () => clearTimeout(handler);
+    const timer = window.setTimeout(() => setKeyword(search.trim()), 400);
+    return () => window.clearTimeout(timer);
   }, [search]);
 
-  // lay list category tu backend nha
-  const { data: catResponse } = useSWR(`${API_BASE_URL}/api/categories`, async (url) => {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const body = await res.json();
-        return body.data as Category[];
-      }
-    } catch (e) {
-      console.log("Using mock categories (Backend offline)");
-    }
-    return MOCK_CATEGORIES;
-  });
+  const path = useMemo(() => {
+    const query = new URLSearchParams({ page: "0", size: "30" });
+    if (keyword) query.set("keyword", keyword);
+    if (level !== "ALL") query.set("level", level);
+    if (categoryId !== "ALL") query.set("categoryId", categoryId);
+    const [sortBy, sortDir] = sort.split("-");
+    query.set("sortBy", sortBy);
+    query.set("sortDir", sortDir);
+    return `${API_BASE_URL}/api/courses/p/search?${query}`;
+  }, [categoryId, keyword, level, sort]);
 
-  const categories = catResponse || MOCK_CATEGORIES;
-
-  // build query gui len backend
-  const queryParams = new URLSearchParams();
-  if (debouncedSearch) queryParams.append("keyword", debouncedSearch);
-  if (selectedLevel !== "All") queryParams.append("level", selectedLevel);
-  if (selectedCategory !== "All") {
-    const matchedCat = categories.find(c => c.name === selectedCategory || c.slug === selectedCategory.toLowerCase());
-    if (matchedCat) queryParams.append("categoryId", matchedCat.id);
-  }
-  queryParams.append("sortBy", sortField);
-  queryParams.append("sortDir", sortDirection);
-
-  // lay danh sach course tu backend qua gateway 8080
-  const { data: coursesResponse, error: coursesError, isLoading: coursesLoading } = useSWR(
-    `${API_BASE_URL}/api/courses/p/search?${queryParams.toString()}`,
-    async (url) => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("API call failed");
-      const body = await res.json();
-      return body.data;
+  const { data: categories = [], error: categoriesError, isLoading: categoriesLoading } = useSWR<Category[]>(
+    [`${API_BASE_URL}/api/categories`, token ?? "PUBLIC"],
+    async ([url, currentToken]: readonly [string, string]) => {
+      const response = await fetch(url, {
+        headers: currentToken === "PUBLIC" ? undefined : buildAuthHeaders(currentToken),
+      });
+      const body = await response.json().catch(() => null) as ApiResponse<Category[]> | Category[] | null;
+      if (!response.ok) throw new Error((body as { message?: string } | null)?.message ?? `HTTP ${response.status}`);
+      if (!body) return [];
+      return unwrapData<Category[]>(body);
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  // neu loi hoac khong co data thi xai mock data nha
-  let courses: Course[] = [];
-  let isUsingFallback = false;
-
-  if (coursesError || !coursesResponse) {
-    isUsingFallback = true;
-    courses = MOCK_COURSES.filter((course) => {
-      const matchesSearch =
-        debouncedSearch === "" ||
-        course.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        course.shortDescription.toLowerCase().includes(debouncedSearch.toLowerCase());
-      
-      const matchesCategory =
-        selectedCategory === "All" ||
-        course.categories?.some(
-          (c) => c.name.toLowerCase() === selectedCategory.toLowerCase()
-        );
-
-      const matchesLevel =
-        selectedLevel === "All" ||
-        course.level.toLowerCase() === selectedLevel.toLowerCase();
-
-      return matchesSearch && matchesCategory && matchesLevel;
-    });
-  } else {
-    const content = coursesResponse.content || coursesResponse;
-    courses = Array.isArray(content) ? content : [];
-  }
-
-  const levelsList = ["All", "A1", "A2", "B1", "B2", "C1", "C2", "IELTS", "TOEIC", "TOEFL"];
-
-  return (
-    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900">
-      <Header />
-
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* tieu de trang */}
-        <div className="space-y-4 text-center md:text-left mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
-            Khóa học tiếng Anh của bạn
-          </h1>
-          <p className="text-lg text-gray-500 max-w-3xl">
-            Tìm kiếm những khóa học chuyên nghiệp, lộ trình tinh gọn, giúp bạn nâng tầm trình độ học thuật và thực hành giao tiếp.
-          </p>
-        </div>
-
-        {/* thanh loc */}
-        <FilterBar
-          search={search}
-          setSearch={setSearch}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          selectedLevel={selectedLevel}
-          setSelectedLevel={setSelectedLevel}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          setSortField={setSortField}
-          setSortDirection={setSortDirection}
-          categories={categories}
-          levelsList={levelsList}
-        />
-
-        {/* thong bao offline */}
-        {isUsingFallback && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 flex items-center justify-between text-yellow-800 text-sm shadow-sm animate-pulse">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 animate-spin text-yellow-600" />
-              <span>
-                <strong>Offline Mode:</strong> Đang hiển thị dữ liệu khóa học mẫu tuyệt đẹp do máy chủ đang trong trạng thái khởi chạy.
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* danh sach khoa hoc */}
-        {coursesLoading ? (
-          <div className="flex justify-center items-center py-24">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : courses.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-soft py-20 px-4 text-center">
-            <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-800">Không tìm thấy khóa học nào</h3>
-            <p className="text-gray-500 mt-2">Hãy thử đổi từ khóa tìm kiếm hoặc các bộ lọc của bạn.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {courses.map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
-        )}
-      </main>
-
-      <Footer />
-    </div>
+  const { data: courses = [], error, isLoading, mutate, isValidating } = useSWR<Course[]>(
+    path,
+    async (url: string) => {
+      const response = await fetch(url);
+      const body = await response.json().catch(() => null) as ApiResponse<PagePayload<Course> | Course[]> | PagePayload<Course> | Course[] | null;
+      if (!response.ok) throw new Error((body as { message?: string } | null)?.message ?? `HTTP ${response.status}`);
+      if (!body) return [];
+      return unwrapPageContent<Course>(body);
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   );
+
+  return <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
+    <Header />
+    <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 sm:px-6 lg:px-8">
+      <header className="mb-8"><h1 className="text-4xl font-extrabold tracking-tight">Khóa học tiếng Anh</h1><p className="mt-2 max-w-3xl text-gray-500">Danh sách khóa học đang được xuất bản trên St3pLearn.</p></header>
+
+      <section className="mb-8 space-y-5 rounded-2xl border bg-white p-6 shadow-soft">
+        <div className="grid gap-3 md:grid-cols-[1fr_240px]"><label className="relative"><Search className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm tên hoặc mô tả khóa học..." className="w-full rounded-xl border py-3 pl-10 pr-3 text-sm" /></label><select value={sort} onChange={(event) => setSort(event.target.value)} className="rounded-xl border px-3 text-sm"><option value="createdAt-DESC">Mới nhất</option><option value="createdAt-ASC">Cũ nhất</option><option value="price-ASC">Giá thấp đến cao</option><option value="price-DESC">Giá cao đến thấp</option></select></div>
+        <div><span className="mb-2 block text-xs font-bold uppercase text-gray-400">Danh mục</span>{categoriesLoading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : categoriesError ? <p className="text-xs font-bold text-amber-700">Không tải được danh mục: {categoriesError instanceof Error ? categoriesError.message : "Request failed"}</p> : <div className="flex flex-wrap gap-2"><button onClick={() => setCategoryId("ALL")} className={`rounded-xl px-3 py-1.5 text-xs font-bold ${categoryId === "ALL" ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}>Tất cả</button>{categories.map((category) => <button key={category.id} onClick={() => setCategoryId(category.id)} className={`rounded-xl px-3 py-1.5 text-xs font-bold ${categoryId === category.id ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}>{category.name}</button>)}</div>}</div>
+        <div><span className="mb-2 block text-xs font-bold uppercase text-gray-400">Trình độ</span><div className="flex flex-wrap gap-2">{levels.map((value) => <button key={value} onClick={() => setLevel(value)} className={`rounded-xl px-3 py-1.5 text-xs font-bold ${level === value ? "bg-secondary text-white" : "bg-gray-100 text-gray-600"}`}>{value === "ALL" ? "Tất cả" : value}</button>)}</div></div>
+      </section>
+
+      {isLoading && <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}
+      {!isLoading && error && <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center"><h2 className="font-black text-red-700">Không tải được khóa học</h2><p className="mt-2 text-sm text-red-600">{error instanceof Error ? error.message : "Course Service không phản hồi."}</p><button onClick={() => mutate()} disabled={isValidating} className="mx-auto mt-4 flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 font-bold text-white"><RefreshCw className={`h-4 w-4 ${isValidating ? "animate-spin" : ""}`} />Thử lại</button></div>}
+      {!isLoading && !error && courses.length === 0 && <div className="rounded-2xl border border-dashed bg-white py-20 text-center"><BookOpen className="mx-auto h-14 w-14 text-gray-300" /><h2 className="mt-4 text-xl font-bold">Không tìm thấy khóa học</h2><p className="mt-2 text-gray-500">Hãy thay đổi từ khóa hoặc trình độ.</p></div>}
+      {!isLoading && !error && courses.length > 0 && <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">{courses.map((course) => <CourseCard key={course.id} course={course} />)}</div>}
+    </main>
+    <Footer />
+  </div>;
 }

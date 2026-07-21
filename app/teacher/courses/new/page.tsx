@@ -9,22 +9,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
+import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/components/ui/Toast";
-import { courseCreateSchema, type CourseCreateFormValues } from "@/lib/validations";
+import { courseCreateSchema, type CourseCreateFormInput, type CourseCreateFormValues } from "@/lib/validations";
 
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-}
-
-const MOCK_CATEGORIES: Category[] = [
-  { id: "cat-1", name: "Speaking", slug: "speaking" },
-  { id: "cat-2", name: "Listening", slug: "listening" },
-  { id: "cat-3", name: "Grammar", slug: "grammar" },
-  { id: "cat-4", name: "Vocabulary", slug: "vocabulary" },
-  { id: "cat-5", name: "Writing", slug: "writing" }
-];
+interface Category { id: string; name: string }
 
 export default function NewCoursePage() {
   const router = useRouter();
@@ -36,8 +25,7 @@ export default function NewCoursePage() {
     register: registerField,
     handleSubmit,
     formState: { errors },
-    setValue,
-  } = useForm<CourseCreateFormValues>({
+  } = useForm<CourseCreateFormInput, unknown, CourseCreateFormValues>({
     resolver: zodResolver(courseCreateSchema),
     defaultValues: {
       title: "",
@@ -57,31 +45,16 @@ export default function NewCoursePage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Fetch categories from backend gateway
-  const { data: categoriesResponse } = useSWR(
-    `${API_BASE_URL}/api/categories`,
-    async (url) => {
-      try {
-        const res = await fetch(url);
-        if (res.ok) {
-          const body = await res.json();
-          return body.data as Category[];
-        }
-      } catch (e) {}
-      return MOCK_CATEGORIES;
-    }
+  const { data: categories = [], error: categoriesError, isLoading: categoriesLoading } = useSWR<Category[]>(
+    token ? ["/api/categories", token] : null,
+    async ([path]: readonly [string, string]) => {
+      const body = await apiFetch<{ data?: Category[] } | Category[]>(path);
+      return Array.isArray(body) ? body : body.data ?? [];
+    },
+    { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  const categories = categoriesResponse || MOCK_CATEGORIES;
-
-  // Set default category
-  useEffect(() => {
-    if (categories.length > 0) {
-      setValue("categoryId", categories[0].id, { shouldValidate: false });
-    }
-  }, [categories, setValue]);
-
-  const fieldClassName = (field: keyof CourseCreateFormValues, base: string) =>
+  const fieldClassName = (field: keyof CourseCreateFormInput, base: string) =>
     `${base} ${
       errors[field] ? "border-red-300 focus:ring-red-400" : "border-gray-200 focus:ring-primary"
     }`;
@@ -118,37 +91,18 @@ export default function NewCoursePage() {
       }
 
       const createdCourseId = body?.data?.id;
-      if (createdCourseId && data.categoryId) {
-        await fetch(`${API_BASE_URL}/api/courses/${createdCourseId}/taxonomy`, {
+      if (createdCourseId) {
+        await apiFetch(`/api/courses/${createdCourseId}/taxonomy`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...buildAuthHeaders(token),
-          },
-          body: JSON.stringify({
-            categoryIds: [data.categoryId],
-            tagIds: [],
-          }),
-        }).catch(() => null);
+          body: JSON.stringify({ categoryIds: [data.categoryId], tagIds: [] }),
+        });
       }
 
       toast.success("Tạo khóa học mới thành công", "Bạn có thể tiếp tục thêm chương và bài học.");
       router.push(createdCourseId ? `/teacher/courses/${createdCourseId}/curriculum` : "/teacher");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Lỗi API";
-      console.warn("Lỗi API, chuyển sang cơ chế giả lập lưu trữ offline: ", message);
-      
-      // Lưu trữ cục bộ: lưu ID khóa học vào local storage để hiển thị trên Dashboard giáo viên
-      try {
-        const localCourses = localStorage.getItem("st3p_enrolled_local") || "[]";
-        const parsed = JSON.parse(localCourses);
-        // Lưu trữ ID khóa học giả định
-        parsed.push("grammar-1"); 
-        localStorage.setItem("st3p_enrolled_local", JSON.stringify(parsed));
-      } catch (e) {}
-
-      toast.warning("Đã lưu khóa học ở chế độ offline", "Backend chưa phản hồi, dữ liệu demo vẫn được giữ tạm.");
-      router.push("/teacher");
+      toast.error("Không thể tạo khóa học", message);
     } finally {
       setIsSaving(false);
     }
@@ -268,23 +222,15 @@ export default function NewCoursePage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Chủ điểm bài học</label>
-                <select
-                  {...registerField("categoryId")}
-                  aria-invalid={Boolean(errors.categoryId)}
-                  className={fieldClassName(
-                    "categoryId",
-                    "w-full text-xs rounded-xl border px-4 py-3 focus:ring-2 focus:border-transparent outline-none bg-white cursor-pointer"
-                  )}
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
+                <label className="text-2xs font-extrabold uppercase text-gray-400 tracking-wider">Danh mục</label>
+                <select {...registerField("categoryId")} disabled={categoriesLoading || Boolean(categoriesError)} className={fieldClassName("categoryId", "w-full text-xs rounded-xl border px-4 py-3 outline-none bg-white disabled:bg-gray-100")}>
+                  <option value="">{categoriesLoading ? "Đang tải..." : "Chọn danh mục"}</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
-                {errors.categoryId && (
-                  <p className="text-3xs font-bold text-red-500">{errors.categoryId.message}</p>
-                )}
+                {categoriesError && <p className="text-3xs font-bold text-red-500">Không tải được danh mục.</p>}
+                {errors.categoryId && <p className="text-3xs font-bold text-red-500">{errors.categoryId.message}</p>}
               </div>
+
             </div>
 
             {/* Description */}

@@ -36,11 +36,6 @@ export const courseCreateSchema = z.object({
   categoryId: requiredText("Vui lòng chọn danh mục.", 1, 80),
 });
 
-export const taxonomySchema = z.object({
-  categoryIds: z.array(z.string()).min(1, "Khóa học cần ít nhất một danh mục."),
-  tagIds: z.array(z.string()),
-});
-
 export const taxonomyNameSchema = z.object({
   name: requiredText("Tên không được để trống.", 2, 80),
 });
@@ -61,6 +56,7 @@ export const profileSchema = z.object({
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
 export type CourseCreateFormValues = z.infer<typeof courseCreateSchema>;
+export type CourseCreateFormInput = z.input<typeof courseCreateSchema>;
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export type FieldErrors<T extends string> = Partial<Record<T, string>>;

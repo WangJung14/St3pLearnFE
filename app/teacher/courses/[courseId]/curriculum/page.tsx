@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, type FormEvent } from "react";
+import { use, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
@@ -13,16 +13,15 @@ import {
   RotateCcw,
   Rocket,
   Send,
-  Tags,
   Trash2,
   Video,
 } from "lucide-react";
 import { RoleGuard } from "@/components/guards/RoleGuard";
-import CourseTaxonomyForm from "@/components/courses/CourseTaxonomyForm";
 import LessonContentUploader from "@/components/courses/LessonContentUploader";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
+import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/components/ui/Toast";
 
 type LessonType = "VIDEO" | "AUDIO" | "PDF" | "SCORM" | "QUIZ";
@@ -89,37 +88,6 @@ interface LessonResponse {
   content?: LessonContent | null;
 }
 
-const MOCK_CURRICULUM: Chapter[] = [
-  {
-    id: "ch-1",
-    title: "Chương 1: Giới thiệu và Cấu trúc đề thi IELTS mới nhất",
-    orderIndex: 1,
-    lessons: [
-      {
-        id: "les-1",
-        title: "Tổng quan cấu trúc bài thi IELTS Academic & General Training",
-        orderIndex: 1,
-        duration: 12,
-        lessonType: "VIDEO",
-        isPreview: true,
-        content: {
-          contentType: "VIDEO_CLOUDINARY",
-          storageUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-        },
-      },
-      {
-        id: "les-2",
-        title: "Tiêu chí chấm điểm 4 kỹ năng và Chiến lược đặt mục tiêu",
-        orderIndex: 2,
-        duration: 15,
-        lessonType: "PDF",
-        isPreview: false,
-        content: null,
-      },
-    ],
-  },
-];
-
 function unwrapData<T>(body: ApiResponse<T> | T): T {
   return (body as ApiResponse<T>).data ?? (body as T);
 }
@@ -180,8 +148,7 @@ function CurriculumBuilderContent({
   const { token } = useAuth();
   const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState<"curriculum" | "taxonomy" | "workflow">("curriculum");
-  const [localChapters, setLocalChapters] = useState<Chapter[]>(MOCK_CURRICULUM);
+  const [activeTab, setActiveTab] = useState<"curriculum" | "workflow">("curriculum");
   const [newChapterTitle, setNewChapterTitle] = useState("");
   const [newLessonTitle, setNewLessonTitle] = useState<Record<string, string>>({});
   const [lessonDuration, setLessonDuration] = useState<Record<string, string>>({});
@@ -190,11 +157,9 @@ function CurriculumBuilderContent({
   const [processingAction, setProcessingAction] = useState<"submit" | "publish" | "cancel" | null>(null);
 
   const { data: courseSnapshot, mutate: mutateCourseSnapshot } = useSWR<CourseSnapshot>(
-    token ? [`${API_BASE_URL}/api/courses/${courseId}`, token] : null,
-    async ([url]) => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Fetch course failed");
-      const body = await res.json() as ApiResponse<CourseSnapshot> | CourseSnapshot;
+    token ? [`/api/courses/${courseId}`, token] : null,
+    async ([path]) => {
+      const body = await apiFetch<ApiResponse<CourseSnapshot> | CourseSnapshot>(path);
       return unwrapData<CourseSnapshot>(body);
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
@@ -235,11 +200,7 @@ function CurriculumBuilderContent({
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  useEffect(() => {
-    if (apiChapters) setLocalChapters(apiChapters);
-  }, [apiChapters]);
-
-  const chapters = apiChapters ?? (curriculumError ? localChapters : []);
+  const chapters = apiChapters ?? [];
 
   const handleAddChapter = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -262,16 +223,8 @@ function CurriculumBuilderContent({
       setNewChapterTitle("");
       await mutateCurriculum();
       toast.success("Đã thêm chương học mới");
-    } catch {
-      const newChapter: Chapter = {
-        id: `ch-${Date.now()}`,
-        title: newChapterTitle.trim(),
-        orderIndex: chapters.length + 1,
-        lessons: [],
-      };
-      setLocalChapters((current) => [...current, newChapter]);
-      setNewChapterTitle("");
-      toast.warning("Đã thêm chương học ở chế độ offline");
+    } catch (cause) {
+      toast.error("Không thể thêm chương học", cause instanceof Error ? cause.message : undefined);
     } finally {
       setIsSavingChapter(false);
     }
@@ -291,10 +244,8 @@ function CurriculumBuilderContent({
 
       await mutateCurriculum();
       toast.success("Đã xóa chương học");
-    } catch (err: unknown) {
-      setLocalChapters((current) => current.filter((chapter) => chapter.id !== chapterId));
-      const message = err instanceof Error ? err.message : "Đã xóa chương học (Offline Mode).";
-      toast.warning("Đã cập nhật chương học cục bộ", message);
+    } catch (cause) {
+      toast.error("Không thể xóa chương học", cause instanceof Error ? cause.message : undefined);
     }
   };
 
@@ -325,31 +276,8 @@ function CurriculumBuilderContent({
       setLessonDuration((current) => ({ ...current, [chapterId]: "15" }));
       await mutateCurriculum();
       toast.success("Đã thêm bài học mới");
-    } catch {
-      setLocalChapters((current) =>
-        current.map((chapter) =>
-          chapter.id === chapterId
-            ? {
-                ...chapter,
-                lessons: [
-                  ...chapter.lessons,
-                  {
-                    id: `les-${Date.now()}`,
-                    title,
-                    lessonType: selectedLessonType,
-                    duration: Math.max(1, durationMinutes),
-                    isPreview: false,
-                    orderIndex: chapter.lessons.length + 1,
-                    content: null,
-                  },
-                ],
-              }
-            : chapter
-        )
-      );
-      setNewLessonTitle((current) => ({ ...current, [chapterId]: "" }));
-      setLessonDuration((current) => ({ ...current, [chapterId]: "15" }));
-      toast.warning("Đã thêm bài học ở chế độ offline");
+    } catch (cause) {
+      toast.error("Không thể thêm bài học", cause instanceof Error ? cause.message : undefined);
     }
   };
 
@@ -370,15 +298,8 @@ function CurriculumBuilderContent({
 
       await mutateCurriculum();
       toast.success("Đã xóa bài học");
-    } catch {
-      setLocalChapters((current) =>
-        current.map((chapter) =>
-          chapter.id === chapterId
-            ? { ...chapter, lessons: chapter.lessons.filter((lesson) => lesson.id !== lessonId) }
-            : chapter
-        )
-      );
-      toast.warning("Đã xóa bài học ở chế độ offline");
+    } catch (cause) {
+      toast.error("Không thể xóa bài học", cause instanceof Error ? cause.message : undefined);
     }
   };
 
@@ -438,8 +359,8 @@ function CurriculumBuilderContent({
           </button>
 
           {curriculumError && (
-            <span className="rounded-full border border-yellow-100 bg-yellow-50 px-3 py-1 text-3xs font-extrabold text-yellow-600">
-              Offline Mode
+            <span className="rounded-full border border-red-100 bg-red-50 px-3 py-1 text-3xs font-extrabold text-red-600">
+              Không kết nối được Course Service
             </span>
           )}
         </div>
@@ -466,10 +387,9 @@ function CurriculumBuilderContent({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {[
               { id: "curriculum", label: "Giáo trình", icon: Film },
-              { id: "taxonomy", label: "Phân loại", icon: Tags },
               { id: "workflow", label: "Duyệt & xuất bản", icon: Rocket },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -491,12 +411,6 @@ function CurriculumBuilderContent({
             })}
           </div>
         </section>
-
-        {activeTab === "taxonomy" && (
-          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
-            <CourseTaxonomyForm courseId={courseId} token={token} />
-          </section>
-        )}
 
         {activeTab === "workflow" && (
           <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft">
