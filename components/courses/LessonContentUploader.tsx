@@ -115,6 +115,53 @@ export default function LessonContentUploader({
       return;
     }
 
+    // Xử lý trực tiếp file PDF upload thẳng lên server không qua Cloudinary
+    if (file.type === "application/pdf") {
+      setIsUploading(true);
+      try {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const dataUrl = reader.result as string;
+            const saveRes = await fetch(
+              `${API_BASE_URL}/api/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/content`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...buildAuthHeaders(token),
+                },
+                body: JSON.stringify({
+                  contentType: "PDF_CLOUDINARY",
+                  storageUrl: dataUrl,
+                  fileSize: file.size,
+                  metadata: {
+                    originalFilename: file.name,
+                  },
+                }),
+              }
+            );
+            const saveBody = await saveRes.json().catch(() => null);
+            if (!saveRes.ok) {
+              throw new Error(saveBody?.message ?? "Không lưu được file PDF lên server");
+            }
+            setMessage("Đã tải và lưu file PDF trực tiếp lên server thành công.");
+            await onUploaded();
+          } catch (err: unknown) {
+            setErrorMessage(err instanceof Error ? err.message : "Upload PDF thất bại");
+          } finally {
+            setIsUploading(false);
+            if (inputRef.current) inputRef.current.value = "";
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (err: unknown) {
+        setErrorMessage("Không đọc được tệp PDF.");
+        setIsUploading(false);
+      }
+      return;
+    }
+
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     if (!cloudName) {
       setErrorMessage("Thiếu NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME để upload Cloudinary.");
