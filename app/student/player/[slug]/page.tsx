@@ -23,7 +23,8 @@ interface Lesson {
   videoUrl?: string;
   audioUrl?: string;
   pdfUrl?: string;
-  type?: "video" | "audio" | "pdf";
+  textContent?: string;
+  type?: "video" | "audio" | "pdf" | "text";
 }
 
 interface Chapter {
