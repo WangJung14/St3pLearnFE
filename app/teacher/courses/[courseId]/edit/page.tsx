@@ -68,8 +68,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
 
   // Fetch course details
   const { data: courseData } = useSWR(
-<<<<<<< Updated upstream
-    token ? [`/api/courses/${params.courseId}`, token] : null,
+    token ? [`/api/courses/${resolvedParams.courseId}`, token] : null,
     async ([path, currentToken]: readonly [string, string]) => {
       const body = await apiFetch<{ data?: CourseEditData } | CourseEditData>(path, {
         headers: buildAuthHeaders(currentToken),
@@ -77,15 +76,6 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
       return (body as { data?: CourseEditData }).data ?? (body as CourseEditData);
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
-=======
-    token ? [`${API_BASE_URL}/api/courses/${resolvedParams.courseId}`, token] : null,
-    async ([url, t]) => {
-      const res = await fetch(url, { headers: buildAuthHeaders(t) });
-      if (!res.ok) throw new Error("Fetch failed");
-      const body = await res.json();
-      return body.data;
-    }
->>>>>>> Stashed changes
   );
 
   // Set default form values when course data is loaded
@@ -136,26 +126,12 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
         throw new Error(body?.message || "Cập nhật khóa học thất bại.");
       }
 
-<<<<<<< Updated upstream
-      await apiFetch(`/api/courses/${params.courseId}/taxonomy`, {
-        method: "POST",
-        body: JSON.stringify({ categoryIds: [data.categoryId], tagIds: [] }),
-      });
-=======
       if (data.categoryId) {
-        await fetch(`${API_BASE_URL}/api/courses/${resolvedParams.courseId}/taxonomy`, {
+        await apiFetch(`/api/courses/${resolvedParams.courseId}/taxonomy`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...buildAuthHeaders(token),
-          },
-          body: JSON.stringify({
-            categoryIds: [data.categoryId],
-            tagIds: [],
-          }),
+          body: JSON.stringify({ categoryIds: [data.categoryId], tagIds: [] }),
         }).catch(() => null);
       }
->>>>>>> Stashed changes
 
       toast.success("Cập nhật thành công", "Thông tin khóa học đã được lưu.");
       router.push("/teacher");
