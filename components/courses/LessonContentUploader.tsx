@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import useSWR from "swr";
-import { AlertCircle, CheckCircle2, Loader2, Upload, MonitorPlay, Link2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Upload, MonitorPlay, Link2, Brain } from "lucide-react";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 
@@ -80,9 +80,11 @@ export default function LessonContentUploader({
   onUploaded,
 }: LessonContentUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"upload" | "youtube" | "text">("upload");
+  const aiFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeTab, setActiveTab] = useState<"upload" | "youtube" | "text" | "ai_doc">("upload");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [textContent, setTextContent] = useState("");
+  const [aiTextContent, setAiTextContent] = useState("");
   const [selectedExamId, setSelectedExamId] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -480,6 +482,19 @@ export default function LessonContentUploader({
         >
           Soạn bằng tay
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("ai_doc");
+            setMessage("");
+            setErrorMessage("");
+          }}
+          className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 flex items-center gap-1 ${
+            activeTab === "ai_doc" ? "border-primary text-primary" : "border-transparent text-gray-400 hover:text-gray-900"
+          }`}
+        >
+          <Brain className="w-4 h-4 text-purple-600" />
+          Nạp tri thức AI
+        </button>
       </div>
 
       {activeTab === "upload" && (
@@ -543,6 +558,108 @@ export default function LessonContentUploader({
           >
             {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Lưu bài học"}
           </button>
+        </div>
+      )}
+
+      {activeTab === "ai_doc" && (
+        <div className="flex flex-col gap-3 bg-purple-50/50 p-4 border border-purple-100 rounded-2xl">
+          <div className="space-y-1">
+            <h4 className="text-xs font-black text-purple-900 flex items-center gap-1">
+              <Brain className="w-4 h-4 text-purple-600" /> Nạp tài liệu tri thức cho Trợ lý AI
+            </h4>
+            <p className="text-3xs font-bold text-purple-700">
+              Tải file Word (.docx), PDF (.pdf) hoặc nhập văn bản thô để Admin duyệt trước khi AI học.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <input
+              ref={aiFileInputRef}
+              type="file"
+              accept=".docx,.pdf,.txt"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !token) return;
+                setIsUploading(true);
+                setMessage("");
+                setErrorMessage("");
+                try {
+                  const form = new FormData();
+                  form.append("file", file);
+                  form.append("title", file.name);
+
+                  const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/documents/upload`, {
+                    method: "POST",
+                    headers: buildAuthHeaders(token, "TEACHER"),
+                    body: form,
+                  });
+                  if (!res.ok) throw new Error("Không gửi được tài liệu cho AI");
+                  setMessage("Đã gửi tệp (.docx/.pdf) cho Admin duyệt nạp vào AI thành công!");
+                } catch (err: unknown) {
+                  setErrorMessage(err instanceof Error ? err.message : "Upload thất bại");
+                } finally {
+                  setIsUploading(false);
+                  if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+                }
+              }}
+            />
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => aiFileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-3xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                Tải file .docx / .pdf cho AI
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-purple-100 space-y-2">
+              <label className="text-3xs font-black text-purple-800">Hoặc nhập đoạn văn bản kiến thức:</label>
+              <textarea
+                placeholder="Nhập kiến thức chuyên ngành, bài học hoặc ghi chú cho AI..."
+                value={aiTextContent}
+                onChange={(e) => setAiTextContent(e.target.value)}
+                rows={3}
+                className="w-full p-2.5 text-xs border border-purple-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 font-bold"
+              />
+              <button
+                disabled={!aiTextContent.trim() || isUploading}
+                onClick={async () => {
+                  if (!token || !aiTextContent.trim()) return;
+                  setIsUploading(true);
+                  setMessage("");
+                  setErrorMessage("");
+                  try {
+                    const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/documents/text`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        ...buildAuthHeaders(token, "TEACHER"),
+                      },
+                      body: JSON.stringify({
+                        title: "Văn bản tri thức giáo viên nhập",
+                        textContent: aiTextContent.trim(),
+                      }),
+                    });
+                    if (!res.ok) throw new Error("Không gửi được văn bản");
+                    setMessage("Đã gửi văn bản tri thức cho Admin kiểm duyệt thành công!");
+                    setAiTextContent("");
+                  } catch (err: unknown) {
+                    setErrorMessage(err instanceof Error ? err.message : "Gửi văn bản thất bại");
+                  } finally {
+                    setIsUploading(false);
+                  }
+                }}
+                className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-800 font-black text-3xs rounded-lg transition-all border border-purple-200 cursor-pointer disabled:opacity-50"
+              >
+                Gửi văn bản cho AI
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, type FormEvent } from "react";
+import { use, useState, useRef, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import {
@@ -15,6 +15,8 @@ import {
   Send,
   Trash2,
   Video,
+  Brain,
+  Upload,
 } from "lucide-react";
 import { RoleGuard } from "@/components/guards/RoleGuard";
 import LessonContentUploader from "@/components/courses/LessonContentUploader";
@@ -148,13 +150,28 @@ function CurriculumBuilderContent({
   const { token } = useAuth();
   const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState<"curriculum" | "workflow">("curriculum");
+  const [activeTab, setActiveTab] = useState<"curriculum" | "workflow" | "ai_documents">("curriculum");
   const [newChapterTitle, setNewChapterTitle] = useState("");
   const [newLessonTitle, setNewLessonTitle] = useState<Record<string, string>>({});
   const [lessonDuration, setLessonDuration] = useState<Record<string, string>>({});
   const [lessonType, setLessonType] = useState<Record<string, LessonType>>({});
   const [isSavingChapter, setIsSavingChapter] = useState(false);
   const [processingAction, setProcessingAction] = useState<"submit" | "publish" | "cancel" | null>(null);
+
+  // States & SWR cho Tài liệu AI
+  const aiFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [aiTextContent, setAiTextContent] = useState("");
+  const [isUploadingAiDoc, setIsUploadingAiDoc] = useState(false);
+
+  const { data: courseDocs = [], mutate: mutateCourseDocs } = useSWR<any[]>(
+    token && activeTab === "ai_documents" ? [`${API_BASE_URL}/api/courses/${courseId}/documents`, token] as const : null,
+    async ([url, currentToken]: readonly [string, string]) => {
+      const res = await fetch(url, { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) return [];
+      const body = await res.json();
+      return unwrapData<any[]>(body) || [];
+    }
+  );
 
   const { data: courseSnapshot, mutate: mutateCourseSnapshot } = useSWR<CourseSnapshot>(
     token ? [`/api/courses/${courseId}`, token] : null,
@@ -387,10 +404,11 @@ function CurriculumBuilderContent({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {[
               { id: "curriculum", label: "Giáo trình", icon: Film },
               { id: "workflow", label: "Duyệt & xuất bản", icon: Rocket },
+              { id: "ai_documents", label: "Nạp tri thức AI", icon: Brain },
             ].map((tab) => {
               const Icon = tab.icon;
               const selected = activeTab === tab.id;
@@ -601,6 +619,168 @@ function CurriculumBuilderContent({
                   </div>
                 </article>
               ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "ai_documents" && (
+          <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft space-y-6">
+            <div className="space-y-1 border-b border-gray-50 pb-4">
+              <h2 className="flex items-center gap-2 text-xl font-black text-gray-900">
+                <Brain className="h-5 w-5 text-purple-600" />
+                Nạp tri thức AI cho Khóa học
+              </h2>
+              <p className="text-xs leading-relaxed text-gray-500">
+                Cung cấp các bài đọc, tài liệu Word/PDF hoặc kiến thức chuyên ngành để bổ sung tri thức cho Trợ lý AI của khóa học này.
+              </p>
+            </div>
+
+            {/* Form nạp tài liệu */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-purple-50/30 p-5 rounded-2xl border border-purple-100/50">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-black text-purple-900 flex items-center gap-1">
+                    <Upload className="w-4 h-4 text-purple-600" /> Cách 1: Tải tài liệu (.docx, .pdf, .txt)
+                  </h3>
+                  <p className="text-3xs text-purple-700 font-bold">
+                    Chọn tệp tài liệu giảng dạy để tải trực tiếp lên server local.
+                  </p>
+                </div>
+                
+                <input
+                  ref={aiFileInputRef}
+                  type="file"
+                  accept=".docx,.pdf,.txt"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !token) return;
+                    setIsUploadingAiDoc(true);
+                    try {
+                      const form = new FormData();
+                      form.append("file", file);
+                      form.append("title", file.name);
+
+                      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/documents/upload`, {
+                        method: "POST",
+                        headers: buildAuthHeaders(token, "TEACHER"),
+                        body: form,
+                      });
+                      if (!res.ok) throw new Error("Upload tài liệu thất bại");
+                      toast.success("Đã gửi file thành công. Chờ Admin kiểm duyệt để nạp vào AI.");
+                      mutateCourseDocs();
+                    } catch (err: unknown) {
+                      toast.error("Upload thất bại", err instanceof Error ? err.message : "Error");
+                    } finally {
+                      setIsUploadingAiDoc(false);
+                      if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+                    }
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => aiFileInputRef.current?.click()}
+                  disabled={isUploadingAiDoc}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingAiDoc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  Chọn tệp tài liệu
+                </button>
+              </div>
+
+              <div className="space-y-3 pt-4 md:pt-0 md:pl-6 md:border-l border-purple-100">
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-black text-purple-900 flex items-center gap-1">
+                    <FileText className="w-4 h-4 text-purple-600" /> Cách 2: Nhập văn bản thô trực tiếp
+                  </h3>
+                  <p className="text-3xs text-purple-700 font-bold">
+                    Nhập nội dung văn bản kiến thức muốn nạp trực tiếp.
+                  </p>
+                </div>
+
+                <textarea
+                  placeholder="Nhập thông tin, kiến thức bổ sung cho AI..."
+                  value={aiTextContent}
+                  onChange={(e) => setAiTextContent(e.target.value)}
+                  rows={4}
+                  className="w-full p-3 text-xs border border-purple-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 font-bold"
+                />
+
+                <button
+                  disabled={!aiTextContent.trim() || isUploadingAiDoc}
+                  onClick={async () => {
+                    if (!token || !aiTextContent.trim()) return;
+                    setIsUploadingAiDoc(true);
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/documents/text`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...buildAuthHeaders(token, "TEACHER"),
+                        },
+                        body: JSON.stringify({
+                          title: "Văn bản tri thức nhập tay",
+                          textContent: aiTextContent.trim(),
+                        }),
+                      });
+                      if (!res.ok) throw new Error("Không gửi được văn bản");
+                      toast.success("Đã gửi nội dung thành công. Đang chờ Admin duyệt nạp AI.");
+                      setAiTextContent("");
+                      mutateCourseDocs();
+                    } catch (err: unknown) {
+                      toast.error("Gửi thất bại", err instanceof Error ? err.message : "Error");
+                    } finally {
+                      setIsUploadingAiDoc(false);
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-800 font-black text-xs rounded-xl border border-purple-200 cursor-pointer disabled:opacity-50"
+                >
+                  Gửi văn bản tri thức
+                </button>
+              </div>
+            </div>
+
+            {/* Danh sách tài liệu hiện có */}
+            <div className="space-y-3 pt-4">
+              <h3 className="text-sm font-black text-gray-900">Danh sách Tài liệu AI đã nộp</h3>
+              {courseDocs.length === 0 ? (
+                <div className="text-center py-8 border border-dashed border-gray-200 rounded-2xl text-xs font-bold text-gray-400">
+                  Chưa có tài liệu tri thức nào được tải lên cho AI.
+                </div>
+              ) : (
+                <div className="border border-gray-100 rounded-2xl overflow-hidden shadow-soft bg-white">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                        <th className="p-4">Tên tài liệu</th>
+                        <th className="p-4">Định dạng</th>
+                        <th className="p-4">Trạng thái</th>
+                        <th className="p-4">Số đoạn (Chunks)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 text-xs font-bold text-gray-700">
+                      {courseDocs.map((doc: any) => (
+                        <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="p-4 font-extrabold text-gray-900">{doc.title}</td>
+                          <td className="p-4 uppercase text-purple-700 text-3xs font-black">{doc.fileType || "doc"}</td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-0.5 rounded-lg text-4xs font-black uppercase ${
+                              doc.status === "INGESTED" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                              doc.status === "FAILED" ? "bg-red-50 text-red-600 border border-red-100" :
+                              doc.status === "REJECTED" ? "bg-slate-100 text-slate-500" :
+                              "bg-amber-50 text-amber-600 border border-amber-100"
+                            }`}>
+                              {doc.status}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono text-gray-500">{doc.chunkCount || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </section>
         )}

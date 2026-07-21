@@ -15,9 +15,10 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
 }
 
 export function buildAuthHeaders(
-  token: string,
+  token: string | null,
   fallbackRole = "TEACHER"
 ): Record<string, string> {
+  if (!token) return {};
   return {
     Authorization: `Bearer ${token}`,
   };
