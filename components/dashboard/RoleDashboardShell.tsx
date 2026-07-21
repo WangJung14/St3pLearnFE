@@ -59,7 +59,7 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
     footer: "Student workspace - tiến độ học tập, khóa học và luyện tập cá nhân.",
     nav: [
       { label: "Tổng quan", href: "/student", icon: LayoutDashboard },
-      { label: "Khóa học", href: "/courses", icon: BookOpen },
+      { label: "Khóa học của tôi", href: "/student/courses", icon: BookOpen },
       { label: "Wishlist", href: "/student/wishlist", icon: Heart },
       { label: "Từ vựng", href: "/student/vocabulary", icon: Brain },
       { label: "Bài thi", href: "/student/exams", icon: ClipboardList },
