@@ -149,10 +149,9 @@ export default function LearningPlayerPage({
     }).catch((cause) => toast.error("Không thể lưu tiến độ", cause instanceof Error ? cause.message : "Request failed"));
   };
 
-  // Chuyển hướng sang trang làm bài kiểm tra trắc nghiệm/phát âm
+  // Bài thi hiện được Backend gắn theo khóa học, không gắn trực tiếp theo lesson.
   const handleTakeQuiz = () => {
-    const examId = window.prompt("Nhập Exam ID (Backend chưa có API liệt kê bài thi cho học viên):");
-    if (examId) router.push(`/student/exams/${examId}`);
+    router.push("/student/exams");
   };
 
   if (error) return <div className="flex h-screen items-center justify-center bg-red-50 p-8 text-red-700">Không thể tải khóa học: {error.message}</div>;
@@ -186,7 +185,7 @@ export default function LearningPlayerPage({
           onClick={handleTakeQuiz}
           className="bg-secondary hover:opacity-95 text-white text-2xs font-extrabold px-4 py-2 rounded-xl shadow-md shadow-blue-100 transition-all cursor-pointer"
         >
-          Làm bài kiểm tra bài học
+          Xem bài kiểm tra
         </button>
       </header>
 

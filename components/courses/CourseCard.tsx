@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Star, Users } from "lucide-react";
+import { Heart, Loader2, Star, Users } from "lucide-react";
 import { useState } from "react";
 import PublicUserProfileModal from "@/components/ui/PublicUserProfileModal";
+import { useWishlist } from "@/lib/useWishlist";
 
 export interface Course {
   id: string;
@@ -26,6 +27,7 @@ interface CourseCardProps {
 
 export default function CourseCard({ course }: CourseCardProps) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const { isSaved, isUpdating, toggle } = useWishlist(course.id, `/courses/${course.slug}`);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -50,6 +52,16 @@ export default function CourseCard({ course }: CourseCardProps) {
               {course.level}
             </span>
           )}
+          <button
+            type="button"
+            onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggle(); }}
+            disabled={isUpdating}
+            className={`absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border bg-white/95 shadow-md transition-colors ${isSaved ? "border-pink-200 text-primary" : "border-white text-gray-500 hover:text-primary"}`}
+            title={isSaved ? "Xóa khỏi Wishlist" : "Thêm vào Wishlist"}
+            aria-label={isSaved ? "Xóa khỏi Wishlist" : "Thêm vào Wishlist"}
+          >
+            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className={`h-5 w-5 ${isSaved ? "fill-current" : ""}`} />}
+          </button>
         </div>
 
         {/* Course Info */}

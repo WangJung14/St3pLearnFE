@@ -95,7 +95,7 @@ export default function CourseCheckoutCard({
               : "bg-primary hover:bg-primary/95 text-white shadow-primary/20"
           }`}
         >
-          {enrolled ? "Vào Học Ngay" : "Đăng Ký Học Ngay"}
+          {enrolled ? "Vào học ngay" : courseData.price > 0 ? "Thanh toán khóa học" : "Đăng ký miễn phí"}
         </button>
 
         <div className="space-y-4 pt-6 border-t border-gray-100">

@@ -7,6 +7,7 @@ import { BookOpen, Check, Edit, Loader2, MessageSquare, Plus, RotateCcw, Send, S
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { apiFetch } from "@/lib/apiFetch";
+import { unwrapPageContent, type ApiResponse, type PagePayload } from "@/lib/apiResponses";
 import { useToast } from "@/components/ui/Toast";
 
 interface Course {
@@ -19,12 +20,6 @@ interface Course {
   avgRating?: number;
 }
 
-interface PageData<T> { content?: T[] }
-
-function normalizeCourses(value: Course[] | PageData<Course>): Course[] {
-  return Array.isArray(value) ? value : value.content ?? [];
-}
-
 export default function TeacherDashboard() {
   const { token } = useAuth();
   const router = useRouter();
@@ -32,11 +27,14 @@ export default function TeacherDashboard() {
   const [processing, setProcessing] = useState<string | null>(null);
   const { data, error, isLoading, mutate } = useSWR(
     token ? ["/api/courses/my-courses", token] : null,
-    ([path]: readonly [string, string]) => apiFetch<Course[] | PageData<Course>>(path),
+    async ([path]: readonly [string, string]) => {
+      const body = await apiFetch<ApiResponse<PagePayload<Course> | Course[]> | PagePayload<Course> | Course[]>(path);
+      return unwrapPageContent<Course>(body);
+    },
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  const courses = data ? normalizeCourses(data) : [];
+  const courses = data ?? [];
   const published = courses.filter((course) => course.status === "PUBLISHED").length;
   const students = courses.reduce((sum, course) => sum + (course.totalStudents ?? 0), 0);
   const ratedCourses = courses.filter((course) => typeof course.avgRating === "number");

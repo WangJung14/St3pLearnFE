@@ -74,6 +74,20 @@ export interface Exam {
   updatedAt?: string;
 }
 
+export interface StudentExamSummary {
+  id: string;
+  courseId: string;
+  title: string;
+  durationMinutes: number;
+  passingScore: number;
+  maxAttempts: number;
+  attemptsUsed: number;
+  remainingAttempts: number;
+  questionCount: number;
+  passed: boolean;
+  canStart: boolean;
+}
+
 export interface StudentQuestion extends Omit<Question, "bankId"> {}
 
 export interface StartExamResponse {
@@ -124,6 +138,19 @@ export interface DueCard {
   example?: string;
 }
 
+export type FlashcardSetVisibility = "PUBLIC" | "PRIVATE" | "SYSTEM" | "COURSE_ONLY";
+
+export interface FlashcardSetSummary {
+  id: string;
+  title: string;
+  courseId?: string;
+  instructorId: string;
+  visibility: FlashcardSetVisibility;
+  cardCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface FlashcardHistory {
   totalCardsReviewed: number;
   newCardsLearned: number;
@@ -155,8 +182,30 @@ export interface CertificateVerification {
 export type DiscountType = "PERCENTAGE" | "FIXED_AMOUNT";
 
 export interface CheckoutResponse {
+  orderId: string;
   orderNumber: string;
-  paymentUrl: string;
+  paymentUrl?: string | null;
+  status: PaymentOrderStatus;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
+export type PaymentOrderStatus = "CREATED" | "PENDING_PAYMENT" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
+
+export interface PaymentOrder {
+  id: string;
+  courseId: string;
+  orderNumber: string;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  currency: string;
+  status: PaymentOrderStatus;
+  gateway?: string;
+  transactionStatus?: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
+  createdAt: string;
+  completedAt?: string;
 }
 
 export interface CouponPayload {

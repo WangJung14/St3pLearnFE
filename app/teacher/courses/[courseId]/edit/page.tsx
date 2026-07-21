@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, BookOpen, Save, Loader2, Sparkles } from "lucide-react";
@@ -25,7 +25,8 @@ interface CourseEditData {
 
 interface Category { id: string; name: string }
 
-export default function EditCoursePage({ params }: { params: { courseId: string } }) {
+export default function EditCoursePage({ params }: { params: Promise<{ courseId: string }> }) {
+  const { courseId } = use(params);
   const router = useRouter();
   const { token, isAuthenticated, isLoading } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
@@ -67,7 +68,7 @@ export default function EditCoursePage({ params }: { params: { courseId: string 
 
   // Fetch course details
   const { data: courseData } = useSWR(
-    token ? [`/api/courses/${params.courseId}`, token] : null,
+    token ? [`/api/courses/${courseId}`, token] : null,
     async ([path, currentToken]: readonly [string, string]) => {
       const body = await apiFetch<{ data?: CourseEditData } | CourseEditData>(path, {
         headers: buildAuthHeaders(currentToken),
@@ -103,7 +104,7 @@ export default function EditCoursePage({ params }: { params: { courseId: string 
 
     try {
       // Gửi yêu cầu POST cập nhật khóa học lên API Gateway
-      const res = await fetch(`${API_BASE_URL}/api/courses/${params.courseId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,7 +126,7 @@ export default function EditCoursePage({ params }: { params: { courseId: string 
         throw new Error(body?.message || "Cập nhật khóa học thất bại.");
       }
 
-      await apiFetch(`/api/courses/${params.courseId}/taxonomy`, {
+      await apiFetch(`/api/courses/${courseId}/taxonomy`, {
         method: "POST",
         body: JSON.stringify({ categoryIds: [data.categoryId], tagIds: [] }),
       });
