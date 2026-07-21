@@ -1,0 +1,20 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="90" y1="40" x2="1110" y2="635" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EC4899"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="page" x1="430" y1="205" x2="770" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity=".98"/>
+      <stop offset="1" stop-color="#FCE7F3" stop-opacity=".94"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" rx="32" fill="url(#background)"/>
+  <circle cx="1030" cy="105" r="170" fill="white" fill-opacity=".08"/>
+  <circle cx="150" cy="610" r="235" fill="white" fill-opacity=".07"/>
+  <path d="M600 220C548 184 486 176 410 196V470C486 450 548 458 600 494V220Z" fill="url(#page)"/>
+  <path d="M600 220C652 184 714 176 790 196V470C714 450 652 458 600 494V220Z" fill="white" fill-opacity=".88"/>
+  <path d="M600 220V494" stroke="#EC4899" stroke-width="8" stroke-linecap="round"/>
+  <path d="M454 257H553M454 302H553M454 347H535M647 257H746M647 302H746M647 347H728" stroke="#A855F7" stroke-opacity=".45" stroke-width="12" stroke-linecap="round"/>
+  <text x="600" y="585" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="5">ST3P LEARN</text>
+</svg>

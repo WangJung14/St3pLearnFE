@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Heart, Loader2, Star, Users } from "lucide-react";
 import { useState } from "react";
 import PublicUserProfileModal from "@/components/ui/PublicUserProfileModal";
@@ -41,11 +42,13 @@ export default function CourseCard({ course }: CourseCardProps) {
       <div className="bg-white rounded-2xl shadow-soft hover:shadow-hover border border-gray-100 overflow-hidden flex flex-col justify-between group transition-all duration-300 transform hover:-translate-y-1">
         {/* Thumbnail image */}
         <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
-          <img
-            src={course.thumbnailUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600"}
+          <Image
+            src={course.thumbnailUrl || "/images/course-placeholder.svg"}
             alt={course.title}
-            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
+            fill
+            unoptimized
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(event) => { event.currentTarget.src = "/images/course-placeholder.svg"; }}
           />
           {course.level && (
             <span className="absolute top-3 left-3 bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">

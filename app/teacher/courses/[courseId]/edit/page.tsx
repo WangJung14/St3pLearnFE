@@ -1,10 +1,11 @@
 "use client";
 
 import React, { use, useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, BookOpen, Save, Loader2, Sparkles } from "lucide-react";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm, useWatch, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
@@ -16,6 +17,7 @@ import { courseCreateSchema, type CourseCreateFormInput, type CourseCreateFormVa
 interface CourseEditData {
   title?: string;
   shortDescription?: string;
+  thumbnailUrl?: string;
   description?: string;
   price?: number;
   level?: string;
@@ -37,11 +39,13 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
     handleSubmit,
     formState: { errors },
     reset,
+    control,
   } = useForm<CourseCreateFormInput, unknown, CourseCreateFormValues>({
     resolver: zodResolver(courseCreateSchema),
     defaultValues: {
       title: "",
       shortDescription: "",
+      thumbnailUrl: "",
       description: "",
       price: 0,
       level: "B1",
@@ -49,6 +53,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
       categoryId: "",
     },
   });
+  const thumbnailUrl = useWatch({ control, name: "thumbnailUrl" });
 
   // Chuyển hướng về trang đăng nhập nếu chưa xác thực bảo mật
   useEffect(() => {
@@ -84,6 +89,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
       reset({
         title: courseData.title || "",
         shortDescription: courseData.shortDescription || "",
+        thumbnailUrl: courseData.thumbnailUrl || "",
         description: courseData.description || "",
         price: courseData.price || 0,
         level: courseData.level || "B1",
@@ -113,6 +119,7 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
         body: JSON.stringify({
           title: data.title,
           shortDescription: data.shortDescription,
+          thumbnailUrl: data.thumbnailUrl || null,
           description: data.description,
           price: data.price,
           level: data.level,
@@ -209,6 +216,13 @@ export default function EditCoursePage({ params }: { params: Promise<{ courseId:
               {errors.shortDescription && (
                 <p className="text-3xs font-bold text-red-500">{errors.shortDescription.message}</p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-2xs font-extrabold uppercase tracking-wider text-gray-400">Ảnh bìa khóa học</label>
+              <input type="url" {...registerField("thumbnailUrl")} placeholder="https://.../course-cover.jpg" aria-invalid={Boolean(errors.thumbnailUrl)} className={fieldClassName("thumbnailUrl", "w-full rounded-xl border px-4 py-3 text-xs outline-none transition-all focus:border-transparent focus:ring-2")} />
+              {errors.thumbnailUrl && <p className="text-3xs font-bold text-red-500">{errors.thumbnailUrl.message}</p>}
+              <div className="relative aspect-video overflow-hidden rounded-2xl border bg-gray-100"><Image src={thumbnailUrl || "/images/course-placeholder.svg"} alt="Xem trước ảnh bìa" fill unoptimized className="object-cover" onError={(event) => { event.currentTarget.src = "/images/course-placeholder.svg"; }} /></div>
             </div>
 
             {/* Level & Price & Category Row */}

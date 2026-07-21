@@ -29,6 +29,7 @@ export const registerSchema = z
 export const courseCreateSchema = z.object({
   title: requiredText("Vui lòng nhập tên khóa học.", 5, 160),
   shortDescription: requiredText("Vui lòng nhập mô tả ngắn.", 12, 240),
+  thumbnailUrl: z.string().trim().url("URL ảnh bìa không hợp lệ.").or(z.literal("")),
   description: requiredText("Vui lòng nhập giới thiệu chi tiết.", 20, 3000),
   price: z.coerce.number().min(0, "Học phí không được âm."),
   level: requiredText("Vui lòng chọn trình độ.", 1, 20),
