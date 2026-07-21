@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { unwrapData, type ApiResponse } from "@/lib/apiResponses";
 import type { ResumeLearning } from "@/lib/endpointTypes";
+import AIAssistantModal from "@/components/ai/AIAssistantModal";
 
 interface Lesson {
   id: string;
@@ -767,6 +768,12 @@ export default function LearningPlayerPage({
           )}
         </div>
       </Modal>
+      {course?.id && (
+        <AIAssistantModal 
+          courseId={course.id} 
+          disabled={activeLesson?.type === "quiz"} 
+        />
+      )}
     </div>
   );
 }
