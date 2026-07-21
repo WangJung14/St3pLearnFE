@@ -9,6 +9,7 @@ import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { useToast } from "@/components/ui/Toast";
 import { apiFetch } from "@/lib/apiFetch";
+import { Modal } from "@/components/ui/Modal";
 
 interface Course {
   id: string;
@@ -34,6 +35,9 @@ export default function AdminCoursesPage() {
   const [isArchiving, setIsArchiving] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removingCourseId, setRemovingCourseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -80,19 +84,32 @@ export default function AdminCoursesPage() {
     }
   };
 
-  const handleRemoveCourse = async (courseId: string) => {
-    const reason = window.prompt("Nhập lý do gỡ khóa học vi phạm:");
-    if (!reason?.trim()) return;
-    if (!confirm("Gỡ nội dung khóa học và gửi thông báo cho giảng viên?")) return;
-    setIsRemoving(courseId);
+  const handleRemoveCourse = (courseId: string) => {
+    setRemovingCourseId(courseId);
+    setRemoveReason("");
+    setRemoveModalOpen(true);
+  };
+
+  const confirmRemoveCourse = async () => {
+    if (!removingCourseId) return;
+    if (!removeReason.trim()) {
+      toast.warning("Vui lòng nhập lý do gỡ khóa học");
+      return;
+    }
+    setRemoveModalOpen(false);
+    setIsRemoving(removingCourseId);
     try {
-      await apiFetch(`/api/admin/courses/${courseId}/remove`, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
+      await apiFetch(`/api/admin/courses/${removingCourseId}/remove`, {
+        method: "POST",
+        body: JSON.stringify({ reason: removeReason.trim() }),
+      });
       toast.success("Đã gỡ khóa học vi phạm");
       await mutate();
     } catch (cause) {
       toast.error("Không thể gỡ khóa học", cause instanceof Error ? cause.message : "Request failed");
     } finally {
       setIsRemoving(null);
+      setRemovingCourseId(null);
     }
   };
 
@@ -278,7 +295,34 @@ export default function AdminCoursesPage() {
             </div>
           </div>
         )}
-      </div>
+      {removeModalOpen && (
+        <Modal
+          isOpen={true}
+          onClose={() => setRemoveModalOpen(false)}
+          title="Gỡ khóa học vi phạm"
+          className="w-full max-w-[512px]"
+          footer={
+            <button
+              onClick={confirmRemoveCourse}
+              className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 transition-all cursor-pointer"
+            >
+              Xác nhận gỡ
+            </button>
+          }
+        >
+          <div className="space-y-4">
+            <label className="block text-sm font-bold text-gray-700">Lý do gỡ khóa học</label>
+            <textarea
+              value={removeReason}
+              onChange={(e) => setRemoveReason(e.target.value)}
+              rows={4}
+              placeholder="Nhập lý do chi tiết về vi phạm điều khoản của khóa học..."
+              className="w-full text-xs rounded-xl border border-gray-200 p-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+        </Modal>
+      )}
     </div>
+  </div>
   );
 }
