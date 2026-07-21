@@ -47,7 +47,7 @@ export default function LearningPlayerPage({
   const resolvedParams = use(params);
   const slug = resolvedParams.slug;
 
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const toast = useToast();
 
@@ -67,18 +67,20 @@ export default function LearningPlayerPage({
 
   // Tải chi tiết thông tin giáo trình khóa học từ API Gateway
   const { data: course, error } = useSWR<CourseDetail>(
-    `${API_BASE_URL}/api/courses/p/${slug}`,
+    `/api/courses/p/${slug}`,
     async (url) => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Fetch failed");
-      const body = await res.json();
-      return body.data;
+      const body = await apiFetch<ApiResponse<CourseDetail> | CourseDetail>(url);
+      return unwrapData(body);
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
   const courseData = course;
-  const resumeKey = token && course?.id ? [`${API_BASE_URL}/api/learning/courses/${course.id}/resume`, token] as const : null;
+  
+  // Chỉ tải tiến độ nếu là Học viên thực sự (Teacher/Admin xem trước không cần track)
+  const isStudent = user?.role === "STUDENT";
+  
+  const resumeKey = token && course?.id && isStudent ? [`${API_BASE_URL}/api/learning/courses/${course.id}/resume`, token] as const : null;
   const { data: resumeData } = useSWR<ResumeLearning>(resumeKey, async ([url, currentToken]: readonly [string, string]) => {
     const res = await fetch(url, { headers: buildAuthHeaders(currentToken, "STUDENT") });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -86,13 +88,13 @@ export default function LearningPlayerPage({
   }, { shouldRetryOnError: false });
 
   useEffect(() => {
-    if (!course?.id || !token) return;
+    if (!course?.id || !token || !isStudent) return;
     let active = true;
     apiFetch<ApiResponse<{ lessonId: string }>>(`/api/learning/courses/${course.id}/start`, { method: "POST" })
       .then((body) => { if (active) setStartLessonId(unwrapData(body).lessonId); })
       .catch((cause) => toast.error("Không thể khởi tạo tiến độ", cause instanceof Error ? cause.message : "Request failed"));
     return () => { active = false; };
-  }, [course?.id, token, toast]);
+  }, [course?.id, token, isStudent, toast]);
 
   // Thiết lập bài học đầu tiên mặc định khi tải giáo trình thành công
   useEffect(() => {
@@ -131,7 +133,10 @@ export default function LearningPlayerPage({
   };
 
   const handleCompleteLesson = async () => {
-    if (!courseData?.id || !activeLesson) return;
+    if (!courseData?.id || !activeLesson || !isStudent) {
+      if (!isStudent) toast.info("Tính năng này chỉ dành cho Học viên.");
+      return;
+    }
     try {
       await apiFetch(`/api/learning/courses/${courseData.id}/lessons/${activeLesson.id}/complete`, { method: "POST" });
       toast.success("Đã hoàn thành bài học", "Tiến độ đã được đồng bộ lên server.");
@@ -141,7 +146,7 @@ export default function LearningPlayerPage({
   };
 
   const trackProgress = (currentSeconds: number) => {
-    if (!courseData?.id || !activeLesson || currentSeconds - lastTrackedSecond.current < 15) return;
+    if (!courseData?.id || !activeLesson || !isStudent || currentSeconds - lastTrackedSecond.current < 15) return;
     lastTrackedSecond.current = currentSeconds;
     void apiFetch(`/api/learning/courses/${courseData.id}/lessons/${activeLesson.id}/progress`, {
       method: "POST",

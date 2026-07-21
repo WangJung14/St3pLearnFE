@@ -12,7 +12,7 @@ export default function StudentDashboardLayout({ children }: { children: ReactNo
   }
 
   return (
-    <RoleGuard allow={["STUDENT", "ADMIN"]}>
+    <RoleGuard allow={["STUDENT", "ADMIN", "TEACHER"]}>
       <RoleDashboardShell role="STUDENT">{children}</RoleDashboardShell>
     </RoleGuard>
   );

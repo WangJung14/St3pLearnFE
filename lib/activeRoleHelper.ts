@@ -19,7 +19,7 @@ export function getActiveRoleContext(): UserRole {
   else if (path.startsWith("/teacher")) activeRole = "TEACHER";
   else if (path.startsWith("/mentor")) activeRole = "MENTOR";
   else if (path.startsWith("/moderator")) activeRole = "MODERATOR";
-  else if (path.startsWith("/student")) activeRole = "STUDENT";
+  else if (path.startsWith("/student") && !path.startsWith("/student/player")) activeRole = "STUDENT";
 
   // Nếu đang ở trang có context role, lưu lại làm "last active role"
   if (activeRole) {

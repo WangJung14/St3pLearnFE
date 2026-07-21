@@ -31,12 +31,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const [couponCode, setCouponCode] = useState("");
 
   const { data: course, error, isLoading, mutate } = useSWR<CourseDetail>(
-    `${API_BASE_URL}/api/courses/p/${encodeURIComponent(slug)}`,
+    `/api/courses/p/${encodeURIComponent(slug)}`,
     async (url: string) => {
-      const response = await fetch(url);
-      const body = await response.json().catch(() => null) as ApiResponse<CourseDetail> | CourseDetail | null;
-      if (!response.ok) throw new Error((body as { message?: string } | null)?.message ?? `HTTP ${response.status}`);
-      if (!body) throw new Error("Course Service trả về dữ liệu rỗng");
+      const body = await apiFetch<ApiResponse<CourseDetail> | CourseDetail>(url).catch(() => null);
+      if (!body) throw new Error("Course Service trả về dữ liệu rỗng hoặc không tải được");
       const value = unwrapData<CourseDetail>(body);
       return { ...value, curriculum: value.curriculum ?? [], avgRating: value.avgRating ?? 0, totalStudents: value.totalStudents ?? 0 };
     },
@@ -49,7 +47,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
+  const { user } = useAuth();
   const enrolled = Boolean(course && enrollments.some((item) => item.courseId === course.id));
+  const hasAccess = Boolean(
+    enrolled || 
+    user?.role === "ADMIN" || 
+    (user?.role === "TEACHER" && course?.instructorId && user?.id === course.instructorId)
+  );
+
   const totals = useMemo(() => {
     const lessons = course?.curriculum?.flatMap((chapter) => chapter.lessons) ?? [];
     return { lessons: lessons.length, duration: lessons.reduce((sum, lesson) => sum + (lesson.duration ?? 0), 0) };
@@ -58,7 +63,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const enroll = async () => {
     if (!course) return;
     if (!isAuthenticated) { router.push(`/student/login?redirect=${encodeURIComponent(`/courses/${slug}`)}`); return; }
-    if (enrolled) { router.push(`/student/player/${slug}`); return; }
+    if (hasAccess) { router.push(`/student/player/${slug}`); return; }
     setEnrolling(true);
     try {
       if (course.price > 0) {
@@ -82,6 +87,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
     {!isLoading && !error && course && <div className="grid gap-8 lg:grid-cols-[1fr_360px]"><div className="space-y-7"><section className="rounded-3xl bg-gradient-to-br from-secondary to-primary p-8 text-white"><span className="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">{course.level}</span><h1 className="mt-4 text-3xl font-black">{course.title}</h1><p className="mt-3 leading-relaxed text-white/85">{course.shortDescription}</p><div className="mt-5 flex flex-wrap gap-5 text-sm"><span className="flex items-center gap-1"><Star className="h-4 w-4 fill-current" />{course.avgRating || "Chưa có đánh giá"}</span><span className="flex items-center gap-1"><Users className="h-4 w-4" />{course.totalStudents} học viên</span><span>Giảng viên: {course.instructorName ?? "Chưa cập nhật"}</span></div></section>
       <section className="rounded-2xl border bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-black">Giới thiệu khóa học</h2><p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-600">{course.description}</p></div><CourseReportForm courseId={course.id} /></div></section>
       <section className="rounded-2xl border bg-white p-6"><h2 className="mb-4 flex items-center gap-2 text-xl font-black"><BookOpen className="h-5 w-5 text-primary" />Chương trình học</h2>{course.curriculum.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center text-sm text-gray-500">Giảng viên chưa công bố nội dung chương trình.</div> : <ChapterAccordion curriculum={course.curriculum} expandedChapters={expanded} toggleChapter={(id) => setExpanded((value) => ({ ...value, [id]: value[id] === false }))} setActivePreviewVideo={setPreview} />}</section>
-    </div><aside className="space-y-3">{course.price > 0 && !enrolled && <input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase())} placeholder="Mã giảm giá (nếu có)" className="w-full rounded-xl border bg-white p-3 text-sm" />}<div className={enrolling ? "pointer-events-none opacity-60" : ""}><CourseCheckoutCard courseData={course} totalDuration={totals.duration} totalLessons={totals.lessons} handleEnroll={enroll} setActivePreviewVideo={setPreview} enrolled={enrolled} /></div>{enrolling && <p className="flex items-center justify-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Đang xử lý...</p>}</aside></div>}
+    </div><aside className="space-y-3">{course.price > 0 && !enrolled && <input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase())} placeholder="Mã giảm giá (nếu có)" className="w-full rounded-xl border bg-white p-3 text-sm" />}<div className={enrolling ? "pointer-events-none opacity-60" : ""}><CourseCheckoutCard courseData={course} totalDuration={totals.duration} totalLessons={totals.lessons} handleEnroll={enroll} setActivePreviewVideo={setPreview} enrolled={hasAccess} /></div>{enrolling && <p className="flex items-center justify-center gap-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Đang xử lý...</p>}</aside></div>}
   </main><Footer /><VideoModal activePreviewVideo={preview} onClose={() => setPreview(null)} /></div>;
 }

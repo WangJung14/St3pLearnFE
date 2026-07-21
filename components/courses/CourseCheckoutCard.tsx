@@ -15,6 +15,7 @@ export interface CourseDetail {
   thumbnailUrl: string;
   price: number;
   level: string;
+  instructorId?: string;
   instructorName?: string;
   instructorPublicId?: string;
   avgRating: number;

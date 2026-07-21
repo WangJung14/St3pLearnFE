@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { BookOpen, Check, Edit, Loader2, MessageSquare, Plus, RotateCcw, Send, Settings, Star, Trash2, Users } from "lucide-react";
+import { BookOpen, Check, Edit, Loader2, MessageSquare, Play, Plus, RotateCcw, Send, Settings, Star, Trash2, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { apiFetch } from "@/lib/apiFetch";
@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 
 interface Course {
   id: string;
+  slug: string;
   title: string;
   level: string;
   price: number;
@@ -87,6 +88,7 @@ export default function TeacherDashboard() {
       {error && <div className="m-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">Không tải được khóa học từ {API_BASE_URL}. {error instanceof Error ? error.message : "Vui lòng kiểm tra Backend/Gateway."}</div>}
       {!isLoading && !error && courses.length === 0 && <div className="p-10 text-center text-sm text-gray-500">Chưa có khóa học nào. Hãy tạo khóa học đầu tiên.</div>}
       {courses.length > 0 && <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-xs uppercase text-gray-400"><tr><th className="p-4">Khóa học</th><th className="p-4">Trình độ</th><th className="p-4">Học phí</th><th className="p-4">Trạng thái</th><th className="p-4">Tác vụ</th></tr></thead><tbody className="divide-y">{courses.map((course) => <tr key={course.id}><td className="p-4 font-bold">{course.title}</td><td className="p-4">{course.level}</td><td className="p-4">{course.price === 0 ? "Miễn phí" : `${course.price.toLocaleString("vi-VN")} đ`}</td><td className="p-4"><span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-bold">{course.status}</span></td><td className="p-4"><div className="flex gap-2">
+        <button title="Xem dưới dạng học viên" onClick={() => window.open(`/student/player/${course.slug || course.id}`, "_blank")}><Play className="h-4 w-4 text-blue-500 hover:text-blue-700" /></button>
         <button title="Sửa thông tin" onClick={() => router.push(`/teacher/courses/${course.id}/edit`)}><Settings className="h-4 w-4" /></button>
         <button title="Quản lý bài học" onClick={() => router.push(`/teacher/courses/${course.id}/curriculum`)}><Edit className="h-4 w-4" /></button>
         <button title="Đánh giá" onClick={() => router.push(`/teacher/courses/${course.id}/reviews`)}><MessageSquare className="h-4 w-4" /></button>
