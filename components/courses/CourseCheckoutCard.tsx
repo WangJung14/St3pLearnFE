@@ -1,6 +1,7 @@
 "use client";
 
 import { PlayCircle, Clock, BookOpen, Award, Globe } from "lucide-react";
+import Image from "next/image";
 import { useToast } from "@/components/ui/Toast";
 
 import { Chapter } from "./ChapterAccordion";
@@ -15,6 +16,7 @@ export interface CourseDetail {
   price: number;
   level: string;
   instructorName?: string;
+  instructorPublicId?: string;
   avgRating: number;
   totalStudents: number;
   curriculum: Chapter[];
@@ -50,11 +52,13 @@ export default function CourseCheckoutCard({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-soft overflow-hidden sticky top-24">
       {/* Media Card Preview */}
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
-        <img
-          src={courseData?.thumbnailUrl || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600"}
-          alt={courseData?.title}
-          className="object-cover w-full h-full"
-        />
+        {courseData.thumbnailUrl ? <Image
+          src={courseData.thumbnailUrl}
+          alt={courseData.title}
+          fill
+          unoptimized
+          className="object-cover"
+        /> : <div className="flex h-full w-full items-center justify-center bg-gray-200 text-sm font-bold text-gray-500">Chưa có ảnh khóa học</div>}
         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
           <button
             onClick={() => {

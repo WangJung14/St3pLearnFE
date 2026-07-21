@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { useToast } from "@/components/ui/Toast";
+import { apiFetch } from "@/lib/apiFetch";
 
 interface Course {
   id: string;
@@ -31,6 +32,8 @@ export default function AdminCoursesPage() {
   const size = 10;
   
   const [isArchiving, setIsArchiving] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState<string | null>(null);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -54,6 +57,7 @@ export default function AdminCoursesPage() {
   const totalPages = coursesData?.totalPages || 0;
 
   const handleArchiveCourse = async (courseId: string) => {
+    if (!token) return;
     if (!confirm("Bạn có chắc chắn muốn lưu trữ (xóa mềm) khóa học này? Hành động này sẽ ẩn khóa học khỏi hệ thống.")) return;
     
     setIsArchiving(courseId);
@@ -73,6 +77,36 @@ export default function AdminCoursesPage() {
       toast.error("Thất bại", "Không thể lưu trữ khóa học");
     } finally {
       setIsArchiving(null);
+    }
+  };
+
+  const handleRemoveCourse = async (courseId: string) => {
+    const reason = window.prompt("Nhập lý do gỡ khóa học vi phạm:");
+    if (!reason?.trim()) return;
+    if (!confirm("Gỡ nội dung khóa học và gửi thông báo cho giảng viên?")) return;
+    setIsRemoving(courseId);
+    try {
+      await apiFetch(`/api/admin/courses/${courseId}/remove`, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
+      toast.success("Đã gỡ khóa học vi phạm");
+      await mutate();
+    } catch (cause) {
+      toast.error("Không thể gỡ khóa học", cause instanceof Error ? cause.message : "Request failed");
+    } finally {
+      setIsRemoving(null);
+    }
+  };
+
+  const migrateStatuses = async () => {
+    if (!confirm("Chạy migration trạng thái cho toàn bộ khóa học? Chỉ thực hiện khi đã phối hợp với Backend.")) return;
+    setIsMigrating(true);
+    try {
+      await apiFetch("/api/courses/admin/migrate-status", { method: "POST" });
+      toast.success("Migration trạng thái hoàn tất");
+      await mutate();
+    } catch (cause) {
+      toast.error("Migration thất bại", cause instanceof Error ? cause.message : "Request failed");
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -109,6 +143,9 @@ export default function AdminCoursesPage() {
         
         {/* Placeholder for future search/filter */}
         <div className="flex gap-2 w-full sm:w-auto">
+          <button disabled={isMigrating} onClick={migrateStatuses} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 disabled:opacity-50">
+            {isMigrating ? "Đang migrate..." : "Migrate status"}
+          </button>
           <div className="relative flex-1 sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
@@ -200,6 +237,14 @@ export default function AdminCoursesPage() {
                             )}
                           </button>
                         )}
+                        <button
+                          onClick={() => handleRemoveCourse(course.id)}
+                          disabled={isRemoving === course.id}
+                          className="p-2 rounded-xl border border-red-100 bg-red-50 text-red-600 disabled:opacity-50"
+                          title="Gỡ khóa học vi phạm"
+                        >
+                          {isRemoving === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useState, useEffect } from "react";
+import React, { use, useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,10 @@ import { API_BASE_URL } from "@/lib/apiConfig";
 import { ArrowLeft, Play, FileText, CheckCircle2, MessageSquare, Edit3, ChevronRight, Video, Volume2, BookOpen } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/Toast";
+import { apiFetch } from "@/lib/apiFetch";
+import { buildAuthHeaders } from "@/lib/authHeaders";
+import { unwrapData, type ApiResponse } from "@/lib/apiResponses";
+import type { ResumeLearning } from "@/lib/endpointTypes";
 
 interface Lesson {
   id: string;
@@ -35,67 +39,6 @@ interface CourseDetail {
   curriculum: Chapter[];
 }
 
-// Fallback Mock data for course player if API fails or returns empty curriculum
-const MOCK_PLAYERS: Record<string, CourseDetail> = {
-  "ielts-masterclass-step-by-step-7-5": {
-    id: "ielts-1",
-    title: "IELTS Masterclass: Step-by-Step 7.5+",
-    slug: "ielts-masterclass-step-by-step-7-5",
-    curriculum: [
-      {
-        id: "ch-1",
-        title: "Chương 1: Giới thiệu và Cấu trúc đề thi IELTS mới nhất",
-        orderIndex: 1,
-        lessons: [
-          {
-            id: "les-1",
-            title: "Tổng quan cấu trúc bài thi IELTS Academic & General Training",
-            orderIndex: 1,
-            duration: 12,
-            isPreview: true,
-            videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-            type: "video"
-          },
-          {
-            id: "les-2",
-            title: "Tiêu chí chấm điểm 4 kỹ năng và Chiến lược đặt mục tiêu",
-            orderIndex: 2,
-            duration: 15,
-            isPreview: false,
-            pdfUrl: "#",
-            type: "pdf"
-          },
-        ],
-      },
-      {
-        id: "ch-2",
-        title: "Chương 2: IELTS Listening & Reading Mastery",
-        orderIndex: 2,
-        lessons: [
-          {
-            id: "les-3",
-            title: "Chiến thuật Skimming & Scanning siêu tốc trong Reading",
-            orderIndex: 1,
-            duration: 20,
-            isPreview: true,
-            videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-            type: "video"
-          },
-          {
-            id: "les-4",
-            title: "Mẹo giải quyết dạng bài Matching Headings & Multiple Choice",
-            orderIndex: 2,
-            duration: 25,
-            isPreview: false,
-            audioUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-            type: "audio"
-          }
-        ]
-      }
-    ]
-  }
-};
-
 export default function LearningPlayerPage({
   params,
 }: {
@@ -112,6 +55,8 @@ export default function LearningPlayerPage({
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [activeTab, setActiveTab] = useState<"discussion" | "notes">("discussion");
   const [personalNotes, setPersonalNotes] = useState("");
+  const [startLessonId, setStartLessonId] = useState<string | null>(null);
+  const lastTrackedSecond = useRef(0);
   
   // Trạng thái bình luận thảo luận bài học
   const [comments, setComments] = useState<Array<{ id: number; author: string; text: string; date: string }>>([
@@ -132,17 +77,31 @@ export default function LearningPlayerPage({
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
 
-  let courseData = course;
-  if (error || !course) {
-    courseData = MOCK_PLAYERS[slug] || MOCK_PLAYERS["ielts-masterclass-step-by-step-7-5"];
-  }
+  const courseData = course;
+  const resumeKey = token && course?.id ? [`${API_BASE_URL}/api/learning/courses/${course.id}/resume`, token] as const : null;
+  const { data: resumeData } = useSWR<ResumeLearning>(resumeKey, async ([url, currentToken]: readonly [string, string]) => {
+    const res = await fetch(url, { headers: buildAuthHeaders(currentToken, "STUDENT") });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return unwrapData<ResumeLearning>(await res.json() as ApiResponse<ResumeLearning>);
+  }, { shouldRetryOnError: false });
+
+  useEffect(() => {
+    if (!course?.id || !token) return;
+    let active = true;
+    apiFetch<ApiResponse<{ lessonId: string }>>(`/api/learning/courses/${course.id}/start`, { method: "POST" })
+      .then((body) => { if (active) setStartLessonId(unwrapData(body).lessonId); })
+      .catch((cause) => toast.error("Không thể khởi tạo tiến độ", cause instanceof Error ? cause.message : "Request failed"));
+    return () => { active = false; };
+  }, [course?.id, token, toast]);
 
   // Thiết lập bài học đầu tiên mặc định khi tải giáo trình thành công
   useEffect(() => {
     if (courseData?.curriculum?.length && courseData.curriculum[0].lessons.length) {
-      setActiveLesson(courseData.curriculum[0].lessons[0]);
+      const lessonId = resumeData?.lastLessonId ?? startLessonId;
+      const lesson = courseData.curriculum.flatMap((chapter) => chapter.lessons).find((item) => item.id === lessonId);
+      setActiveLesson(lesson ?? courseData.curriculum[0].lessons[0]);
     }
-  }, [courseData]);
+  }, [courseData, resumeData?.lastLessonId, startLessonId]);
 
   // Tải và đồng bộ hóa ghi chú cá nhân từ bộ nhớ Local Storage cục bộ
   useEffect(() => {
@@ -171,22 +130,32 @@ export default function LearningPlayerPage({
     setNewComment("");
   };
 
-  const handleCompleteLesson = () => {
-    toast.success("Đã hoàn thành bài học", "+5 XP cho tiến độ học tập.");
+  const handleCompleteLesson = async () => {
+    if (!courseData?.id || !activeLesson) return;
     try {
-      const savedXp = localStorage.getItem("edu_xp");
-      const currentXp = savedXp ? parseInt(savedXp) : 340;
-      localStorage.setItem("edu_xp", (currentXp + 5).toString());
-    } catch (err) {}
+      await apiFetch(`/api/learning/courses/${courseData.id}/lessons/${activeLesson.id}/complete`, { method: "POST" });
+      toast.success("Đã hoàn thành bài học", "Tiến độ đã được đồng bộ lên server.");
+    } catch (cause) {
+      toast.error("Không thể hoàn thành bài học", cause instanceof Error ? cause.message : "Request failed");
+    }
+  };
+
+  const trackProgress = (currentSeconds: number) => {
+    if (!courseData?.id || !activeLesson || currentSeconds - lastTrackedSecond.current < 15) return;
+    lastTrackedSecond.current = currentSeconds;
+    void apiFetch(`/api/learning/courses/${courseData.id}/lessons/${activeLesson.id}/progress`, {
+      method: "POST",
+      body: JSON.stringify({ currentSeconds: Math.floor(currentSeconds) }),
+    }).catch((cause) => toast.error("Không thể lưu tiến độ", cause instanceof Error ? cause.message : "Request failed"));
   };
 
   // Chuyển hướng sang trang làm bài kiểm tra trắc nghiệm/phát âm
   const handleTakeQuiz = () => {
-    if (activeLesson) {
-      router.push(`/student/quiz/${activeLesson.id}?redirect=/student/player/${slug}`);
-    }
+    const examId = window.prompt("Nhập Exam ID (Backend chưa có API liệt kê bài thi cho học viên):");
+    if (examId) router.push(`/student/exams/${examId}`);
   };
 
+  if (error) return <div className="flex h-screen items-center justify-center bg-red-50 p-8 text-red-700">Không thể tải khóa học: {error.message}</div>;
   if (!activeLesson) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
@@ -228,21 +197,13 @@ export default function LearningPlayerPage({
           {/* Media Player Screen */}
           <div className="w-full aspect-video rounded-3xl bg-black overflow-hidden shadow-lg border border-gray-100 relative group">
             {activeLesson.videoUrl ? (
-              activeLesson.videoUrl.includes("youtube.com/embed") || activeLesson.type === 'youtube' ? (
-                <iframe
-                  src={activeLesson.videoUrl}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <video
-                  src={activeLesson.videoUrl}
-                  controls
-                  className="w-full h-full object-contain"
-                  poster="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200"
-                />
-              )
+              <video
+                src={activeLesson.videoUrl}
+                controls
+                onTimeUpdate={(event) => trackProgress(event.currentTarget.currentTime)}
+                className="w-full h-full object-contain"
+                poster="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200"
+              />
             ) : activeLesson.audioUrl ? (
               <div className="w-full h-full bg-gradient-to-tr from-gray-900 to-slate-800 flex flex-col justify-center items-center p-8 space-y-4">
                 <Volume2 className="w-16 h-16 text-primary animate-pulse" />
