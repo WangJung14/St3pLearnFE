@@ -1,4 +1,5 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,8 +13,10 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, footer, className }: ModalProps) {
-  // Prevent background scrolling when open
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     if (isOpen) {
       document.body.style.overflow = "hidden";
     } else {
@@ -24,10 +27,10 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 min-[2400px]:p-12">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
@@ -37,7 +40,7 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
       {/* Content wrapper */}
       <div
         className={cn(
-          "app-modal-panel relative z-50 flex max-h-[85vh] flex-col rounded-3xl border border-gray-100 bg-white shadow-2xl animate-fade-in",
+          "relative z-50 flex w-full max-h-[85vh] flex-col rounded-3xl border border-gray-100 bg-white shadow-2xl animate-fade-in max-w-[512px]",
           className
         )}
       >
@@ -49,6 +52,7 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
             <div />
           )}
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-primary transition-all cursor-pointer"
           >
@@ -68,6 +72,7 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

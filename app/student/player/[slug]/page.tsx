@@ -175,9 +175,9 @@ export default function LearningPlayerPage({
       <header className="h-16 border-b border-gray-100 px-6 flex justify-between items-center bg-white shrink-0">
         <div className="flex items-center gap-4">
           <Link
-            href="/student"
+            href={`/courses/${slug}`}
             className="p-2 rounded-xl hover:bg-gray-50 text-gray-500 hover:text-primary transition-colors"
-            title="Trở về Dashboard"
+            title="Trở về trang khóa học"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
