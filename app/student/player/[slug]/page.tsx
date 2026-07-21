@@ -79,8 +79,32 @@ export default function LearningPlayerPage({
   const { data: course, error } = useSWR<CourseDetail>(
     `/api/courses/p/${slug}`,
     async (url) => {
-      const body = await apiFetch<ApiResponse<CourseDetail> | CourseDetail>(url);
-      return unwrapData(body);
+      const body = await apiFetch<ApiResponse<CourseDetail> | CourseDetail>(url, {
+        headers: { "X-From-Player": "true" }
+      });
+      const data = unwrapData(body);
+      if (data && data.curriculum) {
+        data.curriculum = data.curriculum.map((chapter: any) => ({
+          ...chapter,
+          lessons: (chapter.lessons || []).map((lesson: any) => {
+            const normalized = { ...lesson };
+            const type = lesson.contentType || "";
+            if (type.includes("PDF")) {
+              normalized.pdfUrl = lesson.videoUrl;
+              normalized.videoUrl = undefined;
+              normalized.type = "pdf";
+            } else if (type.includes("AUDIO")) {
+              normalized.audioUrl = lesson.videoUrl;
+              normalized.videoUrl = undefined;
+              normalized.type = "audio";
+            } else {
+              normalized.type = "video";
+            }
+            return normalized;
+          })
+        }));
+      }
+      return data;
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
   );
@@ -273,13 +297,23 @@ export default function LearningPlayerPage({
           {/* Media Player Screen */}
           <div className="w-full aspect-video rounded-3xl bg-black overflow-hidden shadow-lg border border-gray-100 relative group">
             {activeLesson.videoUrl ? (
-              <video
-                src={activeLesson.videoUrl}
-                controls
-                onTimeUpdate={(event) => trackProgress(event.currentTarget.currentTime)}
-                className="w-full h-full object-contain"
-                poster="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200"
-              />
+              activeLesson.videoUrl.includes("youtube.com") || activeLesson.videoUrl.includes("youtu.be") || activeLesson.videoUrl.includes("youtube/embed") ? (
+                <iframe
+                  src={activeLesson.videoUrl}
+                  className="w-full h-full border-none"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title={activeLesson.title}
+                />
+              ) : (
+                <video
+                  src={activeLesson.videoUrl}
+                  controls
+                  onTimeUpdate={(event) => trackProgress(event.currentTarget.currentTime)}
+                  className="w-full h-full object-contain"
+                  poster="https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200"
+                />
+              )
             ) : activeLesson.audioUrl ? (
               <div className="w-full h-full bg-gradient-to-tr from-gray-900 to-slate-800 flex flex-col justify-center items-center p-8 space-y-4">
                 <Volume2 className="w-16 h-16 text-primary animate-pulse" />
@@ -289,6 +323,12 @@ export default function LearningPlayerPage({
                 </div>
                 <audio src={activeLesson.audioUrl} controls className="w-full max-w-md mt-4" />
               </div>
+            ) : activeLesson.pdfUrl ? (
+              <iframe
+                src={activeLesson.pdfUrl}
+                className="w-full h-full border-none bg-white"
+                title={activeLesson.title}
+              />
             ) : (
               <div className="w-full h-full bg-slate-50 flex flex-col justify-center items-center p-8 text-center space-y-4">
                 <FileText className="w-16 h-16 text-primary" />
@@ -298,11 +338,9 @@ export default function LearningPlayerPage({
                 </div>
                 <div className="flex gap-3">
                   <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toast.success("Đã tải tài liệu PDF");
-                    }}
+                    href={activeLesson.pdfUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="bg-primary text-white text-xs font-extrabold px-5 py-2.5 rounded-xl shadow-md shadow-pink-100 transition-all"
                   >
                     Tải về tài liệu PDF
@@ -320,7 +358,19 @@ export default function LearningPlayerPage({
 
           {/* Action Row Under Player */}
           <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-            <h2 className="font-black text-gray-900 text-base">{activeLesson.title}</h2>
+            <div className="space-y-1">
+              <h2 className="font-black text-gray-900 text-base">{activeLesson.title}</h2>
+              {activeLesson.pdfUrl && (
+                <a
+                  href={activeLesson.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <FileText className="w-3.5 h-3.5" /> Mở tài liệu PDF trong tab mới
+                </a>
+              )}
+            </div>
             <button
               onClick={handleCompleteLesson}
               className="flex items-center gap-1.5 bg-emerald-500 hover:opacity-95 text-white text-2xs font-extrabold px-4 py-2 rounded-xl shadow-md shadow-emerald-100 transition-all cursor-pointer"
