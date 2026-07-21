@@ -58,12 +58,22 @@ export default function LearningPlayerPage({
   const [startLessonId, setStartLessonId] = useState<string | null>(null);
   const lastTrackedSecond = useRef(0);
   
-  // Trạng thái bình luận thảo luận bài học
-  const [comments, setComments] = useState<Array<{ id: number; author: string; text: string; date: string }>>([
-    { id: 1, author: "Bùi Gia Hân", text: "Video giải thích cực kỳ dễ hiểu ạ, đặc biệt là phần Skimming và Scanning trong IELTS Reading.", date: "2 giờ trước" },
-    { id: 2, author: "Trần Tuấn Kiệt", text: "Cho em hỏi tài liệu PDF của chương 1 tải ở đâu ạ?", date: "1 ngày trước" }
-  ]);
+  // Trạng thái bình luận thảo luận bài học từ API
   const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  const { data: comments = [], mutate: mutateComments } = useSWR<any[]>(
+    activeLesson?.id ? `/api/courses/lessons/${activeLesson.id}/comments` : null,
+    async (url) => {
+      const body = await apiFetch<any>(url).catch(() => null);
+      if (!body) return [];
+      return unwrapData(body) || [];
+    },
+    { revalidateOnFocus: false }
+  );
 
   // Tải chi tiết thông tin giáo trình khóa học từ API Gateway
   const { data: course, error } = useSWR<CourseDetail>(
@@ -122,14 +132,75 @@ export default function LearningPlayerPage({
     }
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment) return;
-    setComments((prev) => [
-      ...prev,
-      { id: Date.now(), author: "Học Viên", text: newComment, date: "Vừa xong" }
-    ]);
-    setNewComment("");
+    if (!newComment.trim() || !activeLesson?.id) return;
+    try {
+      await apiFetch(`/api/courses/lessons/${activeLesson.id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({
+          content: newComment.trim(),
+          userFullName: user?.fullName || user?.username || "Ẩn danh",
+        }),
+      });
+      setNewComment("");
+      mutateComments();
+      toast.success("Đã đăng bình luận");
+    } catch (cause) {
+      toast.error("Không thể đăng bình luận", cause instanceof Error ? cause.message : undefined);
+    }
+  };
+
+  const handleReplyComment = async (parentCommentId: string) => {
+    if (!replyText.trim() || !activeLesson?.id) return;
+    try {
+      await apiFetch(`/api/courses/lessons/${activeLesson.id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({
+          content: replyText.trim(),
+          userFullName: user?.fullName || user?.username || "Ẩn danh",
+          parentCommentId,
+        }),
+      });
+      setReplyText("");
+      setReplyingTo(null);
+      mutateComments();
+      toast.success("Đã đăng phản hồi");
+    } catch (cause) {
+      toast.error("Không thể đăng phản hồi", cause instanceof Error ? cause.message : undefined);
+    }
+  };
+
+  const handleEditComment = async (commentId: string) => {
+    if (!editText.trim()) return;
+    try {
+      await apiFetch(`/api/courses/lessons/comments/${commentId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          content: editText.trim(),
+          userFullName: user?.fullName || user?.username || "Ẩn danh",
+        }),
+      });
+      setEditText("");
+      setEditingCommentId(null);
+      mutateComments();
+      toast.success("Đã sửa bình luận");
+    } catch (cause) {
+      toast.error("Không thể sửa bình luận", cause instanceof Error ? cause.message : undefined);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+    try {
+      await apiFetch(`/api/courses/lessons/comments/${commentId}`, {
+        method: "DELETE",
+      });
+      mutateComments();
+      toast.success("Đã xóa bình luận");
+    } catch (cause) {
+      toast.error("Không thể xóa bình luận", cause instanceof Error ? cause.message : undefined);
+    }
   };
 
   const handleCompleteLesson = async () => {
@@ -307,17 +378,178 @@ export default function LearningPlayerPage({
 
                 <div className="space-y-4">
                   {comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-2xs flex items-center justify-center">
-                        {comment.author.substring(0, 1)}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-extrabold text-gray-800">{comment.author}</span>
-                          <span className="text-3xs text-gray-400 font-semibold">{comment.date}</span>
+                    <div key={comment.id} className="space-y-3">
+                      {/* Main comment card */}
+                      <div className="flex gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-2xs flex items-center justify-center shrink-0">
+                          {comment.userFullName.substring(0, 1)}
                         </div>
-                        <p className="text-xs text-gray-600 leading-relaxed">{comment.text}</p>
+                        <div className="space-y-2 flex-grow min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-extrabold text-gray-800">{comment.userFullName}</span>
+                            {comment.userRole !== "STUDENT" && (
+                              <span className="text-[9px] font-black uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                {comment.userRole === "TEACHER" ? "Giảng viên" : "Admin"}
+                              </span>
+                            )}
+                            <span className="text-3xs text-gray-400 font-semibold">
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString("vi-VN") : "Vừa xong"}
+                            </span>
+                          </div>
+
+                          {editingCommentId === comment.id ? (
+                            <div className="space-y-2 mt-1">
+                              <textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className="w-full text-xs rounded-xl border border-gray-200 p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+                                rows={2}
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => setEditingCommentId(null)}
+                                  className="text-3xs font-bold text-gray-500 hover:text-gray-900 px-2 py-1 rounded"
+                                >
+                                  Hủy
+                                </button>
+                                <button
+                                  onClick={() => handleEditComment(comment.id)}
+                                  className="text-3xs font-bold bg-primary text-white px-2.5 py-1 rounded-lg"
+                                >
+                                  Lưu
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-600 leading-relaxed break-words">{comment.content}</p>
+                          )}
+
+                          <div className="flex items-center gap-4 text-3xs font-bold text-gray-400 pt-1">
+                            <button
+                              onClick={() => {
+                                setReplyingTo(replyingTo === comment.id ? null : comment.id);
+                                setReplyText("");
+                              }}
+                              className="hover:text-primary transition-colors cursor-pointer"
+                            >
+                              Phản hồi
+                            </button>
+                            {(comment.userId === user?.id) && (
+                              <button
+                                onClick={() => {
+                                  setEditingCommentId(comment.id);
+                                  setEditText(comment.content);
+                                }}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                Sửa
+                              </button>
+                            )}
+                            {(comment.userId === user?.id || user?.role === "ADMIN" || user?.role === "TEACHER") && (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="hover:text-red-500 transition-colors cursor-pointer"
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Replying form */}
+                      {replyingTo === comment.id && (
+                        <div className="pl-10 flex gap-2">
+                          <input
+                            type="text"
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder={`Trả lời ${comment.userFullName}...`}
+                            className="flex-1 text-xs rounded-xl border border-gray-200 px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                          />
+                          <button
+                            onClick={() => handleReplyComment(comment.id)}
+                            className="bg-primary text-white text-3xs font-bold px-4 rounded-xl hover:opacity-95 transition-all cursor-pointer"
+                          >
+                            Gửi
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Replies loop (Indented) */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="pl-10 space-y-3 border-l-2 border-gray-100/80 ml-4">
+                          {comment.replies.map((reply: any) => (
+                            <div key={reply.id} className="flex gap-3 p-3 bg-gray-50/50 rounded-2xl border border-gray-100/50 relative group">
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-[10px] flex items-center justify-center shrink-0">
+                                {reply.userFullName.substring(0, 1)}
+                              </div>
+                              <div className="space-y-1.5 flex-grow min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-extrabold text-gray-800">{reply.userFullName}</span>
+                                  {reply.userRole !== "STUDENT" && (
+                                    <span className="text-[9px] font-black uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                      {reply.userRole === "TEACHER" ? "Giảng viên" : "Admin"}
+                                    </span>
+                                  )}
+                                  <span className="text-3xs text-gray-400 font-semibold">
+                                    {reply.createdAt ? new Date(reply.createdAt).toLocaleDateString("vi-VN") : "Vừa xong"}
+                                  </span>
+                                </div>
+
+                                {editingCommentId === reply.id ? (
+                                  <div className="space-y-2 mt-1">
+                                    <textarea
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      className="w-full text-xs rounded-xl border border-gray-200 p-2 outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+                                      rows={2}
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={() => setEditingCommentId(null)}
+                                        className="text-3xs font-bold text-gray-500 hover:text-gray-900 px-2 py-1 rounded"
+                                      >
+                                        Hủy
+                                      </button>
+                                      <button
+                                        onClick={() => handleEditComment(reply.id)}
+                                        className="text-3xs font-bold bg-primary text-white px-2.5 py-1 rounded-lg"
+                                      >
+                                        Lưu
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-600 leading-relaxed break-words">{reply.content}</p>
+                                )}
+
+                                <div className="flex items-center gap-4 text-3xs font-bold text-gray-400 pt-1">
+                                  {(reply.userId === user?.id) && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingCommentId(reply.id);
+                                        setEditText(reply.content);
+                                      }}
+                                      className="hover:text-primary transition-colors cursor-pointer"
+                                    >
+                                      Sửa
+                                    </button>
+                                  )}
+                                  {(reply.userId === user?.id || user?.role === "ADMIN" || user?.role === "TEACHER") && (
+                                    <button
+                                      onClick={() => handleDeleteComment(reply.id)}
+                                      className="hover:text-red-500 transition-colors cursor-pointer"
+                                    >
+                                      Xóa
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
