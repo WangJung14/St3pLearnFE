@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title description">
+  <title id="title">Course placeholder</title>
+  <desc id="description">Default illustration for a course without a thumbnail</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef2ff"/>
+      <stop offset="1" stop-color="#e0f2fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" rx="32" fill="url(#background)"/>
+  <circle cx="600" cy="300" r="116" fill="#fff" opacity=".9"/>
+  <path d="M505 270 600 220l95 50-95 50-95-50Z" fill="#4f46e5"/>
+  <path d="M535 292v58c39 30 91 30 130 0v-58l-65 34-65-34Z" fill="#0ea5e9"/>
+  <path d="M695 270v72" stroke="#4f46e5" stroke-width="12" stroke-linecap="round"/>
+  <rect x="420" y="455" width="360" height="22" rx="11" fill="#64748b" opacity=".3"/>
+  <rect x="500" y="495" width="200" height="16" rx="8" fill="#64748b" opacity=".18"/>
+</svg>
