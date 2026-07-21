@@ -9,6 +9,7 @@ import { ArrowLeft, Play, FileText, CheckCircle2, MessageSquare, Edit3, ChevronR
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/Toast";
 import { apiFetch } from "@/lib/apiFetch";
+import { Modal } from "@/components/ui/Modal";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 import { unwrapData, type ApiResponse } from "@/lib/apiResponses";
 import type { ResumeLearning } from "@/lib/endpointTypes";
@@ -64,6 +65,7 @@ export default function LearningPlayerPage({
   const [replyText, setReplyText] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [showExamModal, setShowExamModal] = useState(false);
 
   const { data: comments = [], mutate: mutateComments } = useSWR<any[]>(
     activeLesson?.id ? `/api/courses/lessons/${activeLesson.id}/comments` : null,
@@ -97,6 +99,9 @@ export default function LearningPlayerPage({
               normalized.audioUrl = lesson.videoUrl;
               normalized.videoUrl = undefined;
               normalized.type = "audio";
+            } else if (type === "TEXT") {
+              normalized.type = "text";
+              normalized.videoUrl = undefined;
             } else {
               normalized.type = "video";
             }
@@ -107,6 +112,17 @@ export default function LearningPlayerPage({
       return data;
     },
     { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+
+  // Tải danh sách bài tập/đề thi của khóa học từ learning-service
+  const { data: exams = [] } = useSWR<any[]>(
+    course?.id ? `/api/learning/courses/${course.id}/exams` : null,
+    async (url) => {
+      const body = await apiFetch<any>(url).catch(() => null);
+      if (!body) return [];
+      return unwrapData(body) || [];
+    },
+    { revalidateOnFocus: false }
   );
 
   const courseData = course;
@@ -251,8 +267,7 @@ export default function LearningPlayerPage({
 
   // Chuyển hướng sang trang làm bài kiểm tra trắc nghiệm/phát âm
   const handleTakeQuiz = () => {
-    const examId = window.prompt("Nhập Exam ID (Backend chưa có API liệt kê bài thi cho học viên):");
-    if (examId) router.push(`/student/exams/${examId}`);
+    setShowExamModal(true);
   };
 
   if (error) return <div className="flex h-screen items-center justify-center bg-red-50 p-8 text-red-700">Không thể tải khóa học: {error.message}</div>;
@@ -322,6 +337,13 @@ export default function LearningPlayerPage({
                   <p className="text-gray-400 text-xs">{activeLesson.title}</p>
                 </div>
                 <audio src={activeLesson.audioUrl} controls className="w-full max-w-md mt-4" />
+              </div>
+            ) : activeLesson.textContent ? (
+              <div className="w-full h-full bg-white overflow-y-auto p-8 font-sans leading-relaxed text-gray-800 text-sm select-text">
+                <div className="max-w-2xl mx-auto space-y-4">
+                  <h1 className="text-xl font-extrabold text-gray-900 border-b border-gray-100 pb-3">{activeLesson.title}</h1>
+                  <div className="whitespace-pre-wrap">{activeLesson.textContent}</div>
+                </div>
               </div>
             ) : activeLesson.pdfUrl ? (
               <iframe
@@ -672,6 +694,46 @@ export default function LearningPlayerPage({
           </div>
         </div>
       </div>
+      {/* Modal danh sách bài thi/bài tập */}
+      <Modal
+        isOpen={showExamModal}
+        onClose={() => setShowExamModal(false)}
+        title="Danh sách bài tập / Đề thi"
+      >
+        <div className="p-6 space-y-4">
+          <p className="text-xs text-gray-500">Chọn một bài thi/bài tập dưới đây để bắt đầu làm bài:</p>
+          {exams.length === 0 ? (
+            <div className="text-center p-8 bg-gray-50 rounded-2xl text-xs text-gray-400 font-bold">
+              Khóa học này hiện chưa có bài thi hay bài tập nào được xuất bản.
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+              {exams.map((exam) => (
+                <div
+                  key={exam.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl hover:border-primary/20 transition-all"
+                >
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-extrabold text-gray-800">{exam.title}</h4>
+                    <p className="text-3xs text-gray-400 font-bold">
+                      Thời gian: {exam.durationMinutes} phút | Điểm đỗ: {exam.passingScore}%
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowExamModal(false);
+                      router.push(`/student/exams/${exam.id}`);
+                    }}
+                    className="bg-primary text-white text-3xs font-extrabold px-3 py-1.5 rounded-xl hover:opacity-90 transition-all cursor-pointer"
+                  >
+                    Làm bài
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

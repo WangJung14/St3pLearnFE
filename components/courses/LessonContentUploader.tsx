@@ -77,8 +77,9 @@ export default function LessonContentUploader({
   onUploaded,
 }: LessonContentUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"upload" | "youtube">("upload");
+  const [activeTab, setActiveTab] = useState<"upload" | "youtube" | "text">("upload");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [textContent, setTextContent] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -232,6 +233,48 @@ export default function LessonContentUploader({
       setIsUploading(false);
     }
   };
+  
+  const handleSaveText = async () => {
+    setMessage("");
+    setErrorMessage("");
+
+    if (!token) {
+      setErrorMessage("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const saveRes = await fetch(
+        `${API_BASE_URL}/api/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildAuthHeaders(token),
+          },
+          body: JSON.stringify({
+            contentType: "TEXT",
+            storageUrl: "TEXT_CONTENT",
+            fileSize: textContent.length,
+            textContent: textContent,
+          }),
+        }
+      );
+      const saveBody = await saveRes.json().catch(() => null) as { message?: string } | null;
+      if (!saveRes.ok) {
+        throw new Error(saveBody?.message ?? "Không lưu được nội dung bài học");
+      }
+
+      setMessage("Đã lưu nội dung soạn thảo thành công.");
+      await onUploaded();
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : "Lỗi khi lưu bài viết";
+      setErrorMessage(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -261,6 +304,18 @@ export default function LessonContentUploader({
         >
           <MonitorPlay className="w-4 h-4 text-red-500" />
           Link YouTube
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("text");
+            setMessage("");
+            setErrorMessage("");
+          }}
+          className={`px-4 py-2 text-xs font-bold transition-colors border-b-2 ${
+            activeTab === "text" ? "border-primary text-primary" : "border-transparent text-gray-400 hover:text-gray-900"
+          }`}
+        >
+          Soạn bằng tay
         </button>
       </div>
 
@@ -305,6 +360,26 @@ export default function LessonContentUploader({
             </button>
           </div>
           <p className="text-3xs text-gray-400">Hỗ trợ các định dạng youtube.com/watch?v=... hoặc youtu.be/...</p>
+        </div>
+      )}
+      
+      {activeTab === "text" && (
+        <div className="flex flex-col gap-2">
+          <textarea
+            placeholder="Soạn thảo nội dung văn bản bài học..."
+            value={textContent}
+            onChange={(e) => setTextContent(e.target.value)}
+            disabled={isUploading}
+            rows={8}
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-sans leading-relaxed"
+          />
+          <button
+            onClick={handleSaveText}
+            disabled={!textContent || isUploading}
+            className="inline-flex items-center gap-1 rounded-xl bg-primary hover:opacity-90 px-3 py-2 text-3xs font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 self-start"
+          >
+            {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Lưu bài học"}
+          </button>
         </div>
       )}
 
