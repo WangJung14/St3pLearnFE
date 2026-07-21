@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Star, Users } from "lucide-react";
+import { Star, Users, Heart } from "lucide-react";
 import { useState } from "react";
+import useSWR from "swr";
 import PublicUserProfileModal from "@/components/ui/PublicUserProfileModal";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/components/ui/Toast";
+import { apiFetch } from "@/lib/apiFetch";
+import { buildAuthHeaders } from "@/lib/authHeaders";
+import { API_BASE_URL } from "@/lib/apiConfig";
 
 export interface Course {
   id: string;
@@ -26,6 +32,45 @@ interface CourseCardProps {
 
 export default function CourseCard({ course }: CourseCardProps) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const { token } = useAuth();
+  const toast = useToast();
+
+  // Tải danh sách wishlist hiện tại của học viên
+  const { data: wishlistData, mutate: mutateWishlist } = useSWR<any>(
+    token ? [`${API_BASE_URL}/api/wishlists?page=0&size=100`, token] as const : null,
+    async ([url, currentToken]: readonly [string, string]) => {
+      const res = await fetch(url, { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const wishlistItems = wishlistData?.data?.content || wishlistData?.content || wishlistData?.data || [];
+  const isWishlisted = Array.isArray(wishlistItems) && wishlistItems.some((item: any) => item.id === course.id || item.courseId === course.id);
+
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!token) {
+      toast.error("Vui lòng đăng nhập để thêm vào danh sách yêu thích.");
+      return;
+    }
+
+    try {
+      if (isWishlisted) {
+        await apiFetch(`/api/wishlists/courses/${course.id}`, { method: "DELETE" });
+        toast.success("Đã xóa khỏi danh sách yêu thích.");
+      } else {
+        await apiFetch(`/api/wishlists/course/${course.id}`, { method: "POST" });
+        toast.success("Đã thêm vào danh sách yêu thích.");
+      }
+      await mutateWishlist();
+    } catch (err: any) {
+      toast.error("Thao tác thất bại", err?.message || "Đã có lỗi xảy ra");
+    }
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -36,7 +81,20 @@ export default function CourseCard({ course }: CourseCardProps) {
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-soft hover:shadow-hover border border-gray-100 overflow-hidden flex flex-col justify-between group transition-all duration-300 transform hover:-translate-y-1">
+      <div className="bg-white rounded-2xl shadow-soft hover:shadow-hover border border-gray-100 overflow-hidden flex flex-col justify-between group transition-all duration-300 transform hover:-translate-y-1 relative">
+        {/* Wishlist Heart Icon Button at Top-Right */}
+        <button
+          onClick={handleWishlistToggle}
+          className="absolute top-3 right-3 z-10 w-9 h-9 bg-white/95 hover:bg-white backdrop-blur-sm rounded-full flex items-center justify-center shadow-md border border-gray-100/50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          title={isWishlisted ? "Xóa khỏi danh sách yêu thích" : "Thêm vào danh sách yêu thích"}
+        >
+          <Heart
+            className={`w-4.5 h-4.5 transition-colors ${
+              isWishlisted ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-500"
+            }`}
+          />
+        </button>
+
         {/* Thumbnail image */}
         <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
           <img

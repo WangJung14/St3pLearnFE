@@ -22,7 +22,7 @@ export default function TeacherExamDetailPage({ params }: { params: Promise<{ ex
   const [bankId, setBankId] = useState("");
   const [questionIdsOverride, setQuestionIdsOverride] = useState<string[] | null>(null);
   const [submissionStatus, setSubmissionStatus] = useState<"ALL" | ExamAttemptStatus>("ALL");
-  const [selectedAttempt, setSelectedAttempt] = useState<ExamAttempt | null>(null);
+  const [selectedAttempt, setSelectedAttempt] = useState<any | null>(null);
   const [grades, setGrades] = useState<Record<string, GradeValue>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -79,19 +79,48 @@ export default function TeacherExamDetailPage({ params }: { params: Promise<{ ex
     finally { setBusy(null); }
   };
 
-  const openGrade = (attempt: ExamAttempt) => {
-    const initial: Record<string, GradeValue> = {};
-    examQuestions.forEach((question) => { initial[question.id] = { pointsAwarded: 0, feedbackText: "" }; });
-    setGrades(initial); setSelectedAttempt(attempt);
+  const openGrade = async (attempt: ExamAttempt) => {
+    try {
+      const res = await apiFetch(`/api/learning/exams/submissions/${attempt.id}`);
+      const detail = unwrapData<any>(res);
+      const initial: Record<string, GradeValue> = {};
+      
+      const qList = detail.questions || [];
+      qList.forEach((q: any) => {
+        initial[q.questionId] = {
+          pointsAwarded: q.score ?? 0,
+          feedbackText: q.feedback || ""
+        };
+      });
+      
+      setGrades(initial);
+      setSelectedAttempt(detail);
+    } catch (e) {
+      toast.error("Không thể tải chi tiết bài nộp của học viên", e instanceof Error ? e.message : undefined);
+    }
   };
   const submitGrades = async () => {
     if (!selectedAttempt) return;
     setBusy("grade");
+    const qList = selectedAttempt.questions || [];
     try {
-      await apiFetch(`/api/learning/exams/submissions/${selectedAttempt.id}/grade`, { method: "PUT", body: JSON.stringify({ grades: examQuestions.map((question) => ({ questionId: question.id, ...grades[question.id] })) }) });
-      await mutateSubmissions(); setSelectedAttempt(null); toast.success("Đã chấm bài");
-    } catch (cause) { toast.error("Không thể chấm bài", cause instanceof Error ? cause.message : undefined); }
-    finally { setBusy(null); }
+      await apiFetch(`/api/learning/exams/submissions/${selectedAttempt.attemptId || selectedAttempt.id}/grade`, {
+        method: "PUT",
+        body: JSON.stringify({
+          grades: qList.map((q: any) => ({
+            questionId: q.questionId,
+            ...grades[q.questionId]
+          }))
+        })
+      });
+      await mutateSubmissions();
+      setSelectedAttempt(null);
+      toast.success("Đã chấm điểm thành công");
+    } catch (cause) {
+      toast.error("Không thể chấm bài", cause instanceof Error ? cause.message : undefined);
+    } finally {
+      setBusy(null);
+    }
   };
 
   if (isLoading) return <div className="flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" />Đang tải bài thi...</div>;
@@ -114,6 +143,161 @@ export default function TeacherExamDetailPage({ params }: { params: Promise<{ ex
       <div className="space-y-3">{submissions.map((attempt) => <article key={attempt.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white p-4"><div><b>{attempt.studentName || attempt.studentEmail || attempt.studentId}</b><p className="text-xs text-gray-500">{attempt.status} · Điểm {attempt.score ?? "—"} · {attempt.passed === undefined ? "Chưa có kết quả" : attempt.passed ? "Đạt" : "Chưa đạt"}</p></div><button disabled={attempt.status === "STARTED" || attempt.status === "EXPIRED"} onClick={() => openGrade(attempt)} className="flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><ClipboardCheck className="h-4 w-4" />Chấm bài</button></article>)}</div>
     </section>
 
-    {selectedAttempt && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><div className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6"><div><h2 className="text-xl font-black">Chấm bài: {selectedAttempt.studentName || selectedAttempt.studentId}</h2><p className="text-xs text-amber-700">Backend chưa có API trả nội dung câu trả lời cho Teacher; form này chấm điểm theo từng câu hỏi của đề.</p></div>{examQuestions.map((question) => <div key={question.id} className="space-y-2 rounded-xl border p-4"><p className="text-sm font-bold">{question.content}</p><div className="grid gap-2 sm:grid-cols-2"><label className="text-xs text-gray-500">Điểm / {question.points}<input type="number" min="0" max={question.points} step="0.5" value={grades[question.id]?.pointsAwarded ?? 0} onChange={(event) => setGrades((current) => ({ ...current, [question.id]: { ...current[question.id], pointsAwarded: Number(event.target.value) } }))} className="mt-1 w-full rounded-lg border p-2" /></label><label className="text-xs text-gray-500">Nhận xét<input value={grades[question.id]?.feedbackText ?? ""} onChange={(event) => setGrades((current) => ({ ...current, [question.id]: { ...current[question.id], feedbackText: event.target.value } }))} className="mt-1 w-full rounded-lg border p-2" /></label></div></div>)}<div className="flex justify-end gap-2"><button onClick={() => setSelectedAttempt(null)} className="rounded-xl border px-4 py-2 font-bold">Hủy</button><button disabled={busy === "grade" || examQuestions.length === 0} onClick={submitGrades} className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 font-bold text-white disabled:opacity-50">{busy === "grade" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Lưu điểm</button></div></div></div>}
+    {selectedAttempt && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="border-b border-gray-100 pb-4">
+            <h2 className="text-lg font-black text-gray-950">Chấm bài nộp của học viên</h2>
+            <p className="text-2xs text-gray-500 font-bold mt-1">
+              Trạng thái: <span className="text-secondary uppercase">{selectedAttempt.status}</span> | Tổng điểm: {selectedAttempt.score ?? "Chưa chấm"}
+            </p>
+          </div>
+
+          <div className="space-y-4 pr-1">
+            {(selectedAttempt.questions || []).map((q: any) => {
+              const studentAns = q.studentAnswer || {};
+              const selectedIds = Array.isArray(studentAns.selectedOptionIds) ? studentAns.selectedOptionIds : [];
+              const meta = q.metadata || {};
+              const options = Array.isArray(meta.options) ? meta.options : [];
+
+              return (
+                <div key={q.questionId} className="space-y-3 rounded-2xl border border-gray-150 p-4 bg-white shadow-sm">
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <span className="text-[10px] font-black uppercase bg-secondary/10 text-secondary px-2 py-0.5 rounded">
+                        {q.type}
+                      </span>
+                      <p className="text-xs font-extrabold text-gray-800 mt-2 leading-relaxed">{q.content}</p>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400 shrink-0">
+                      Tối đa: {q.points}đ
+                    </span>
+                  </div>
+
+                  {/* Render Options for Choices Types */}
+                  {(q.type === "SINGLE_CHOICE" || q.type === "MULTIPLE_CHOICE" || q.type === "TRUE_FALSE") && options.length > 0 && (
+                    <div className="grid gap-2 sm:grid-cols-2 mt-2">
+                      {options.map((opt: any) => {
+                        const isSelected = selectedIds.includes(opt.id);
+                        const isCorrect = !!(opt.correct || opt.isCorrect);
+                        
+                        let borderClass = "border-gray-100 bg-gray-50/50";
+                        let badgeText = "";
+                        let badgeClass = "";
+
+                        if (isSelected) {
+                          if (isCorrect) {
+                            borderClass = "border-emerald-500 bg-emerald-50/30 text-emerald-800";
+                            badgeText = "Học viên chọn đúng";
+                            badgeClass = "bg-emerald-500 text-white";
+                          } else {
+                            borderClass = "border-rose-500 bg-rose-50/30 text-rose-800";
+                            badgeText = "Học viên chọn sai";
+                            badgeClass = "bg-rose-500 text-white";
+                          }
+                        } else {
+                          if (isCorrect) {
+                            borderClass = "border-emerald-300 bg-emerald-50/10 text-emerald-700 border-dashed";
+                            badgeText = "Đáp án đúng";
+                            badgeClass = "bg-emerald-100 text-emerald-700";
+                          }
+                        }
+
+                        return (
+                          <div key={opt.id} className={`p-3 rounded-xl border text-xs font-semibold relative ${borderClass}`}>
+                            <div className="flex items-start gap-2">
+                              <span className="font-bold text-gray-400 shrink-0">{opt.id}.</span>
+                              <span className="flex-grow">{opt.text}</span>
+                            </div>
+                            {badgeText && (
+                              <span className={`absolute top-2 right-2 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${badgeClass}`}>
+                                {badgeText}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Render Answer for Essay/Text Type */}
+                  {(q.type === "ESSAY" || q.type === "TEXT") && (
+                    <div className="space-y-2 mt-2 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black text-gray-400 uppercase">Câu trả lời của học viên:</span>
+                        <p className="text-xs bg-white border border-gray-100 p-3 rounded-xl whitespace-pre-wrap font-medium text-gray-800">
+                          {studentAns.textAnswer || <span className="text-gray-400 italic">Không có câu trả lời</span>}
+                        </p>
+                      </div>
+                      {meta.essayAnswer && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black text-emerald-600 uppercase">Đáp án gợi ý mẫu:</span>
+                          <p className="text-xs bg-emerald-50/20 border border-emerald-100/50 p-3 rounded-xl whitespace-pre-wrap font-medium text-emerald-800">
+                            {meta.essayAnswer}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-3 sm:grid-cols-2 pt-3 border-t border-gray-50">
+                    <label className="text-3xs font-extrabold uppercase text-gray-400">
+                      Điểm chấm / {q.points}
+                      <input
+                        type="number"
+                        min="0"
+                        max={q.points}
+                        step="0.5"
+                        value={grades[q.questionId]?.pointsAwarded ?? 0}
+                        onChange={(event) => setGrades((current) => ({
+                          ...current,
+                          [q.questionId]: {
+                            ...current[q.questionId],
+                            pointsAwarded: Number(event.target.value)
+                          }
+                        }))}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 p-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </label>
+                    <label className="text-3xs font-extrabold uppercase text-gray-400">
+                      Nhận xét của giáo viên
+                      <input
+                        value={grades[q.questionId]?.feedbackText ?? ""}
+                        onChange={(event) => setGrades((current) => ({
+                          ...current,
+                          [q.questionId]: {
+                            ...current[q.questionId],
+                            feedbackText: event.target.value
+                          }
+                        }))}
+                        placeholder="Nhập phản hồi/nhận xét..."
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-2.5 border-t border-gray-100 pt-4">
+            <button
+              onClick={() => setSelectedAttempt(null)}
+              className="rounded-xl border border-gray-200 px-5 py-2.5 text-xs font-extrabold hover:bg-gray-50 cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              disabled={busy === "grade"}
+              onClick={submitGrades}
+              className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-5 py-2.5 text-xs font-extrabold text-white disabled:opacity-50 cursor-pointer"
+            >
+              {busy === "grade" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Lưu điểm chấm
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>;
 }

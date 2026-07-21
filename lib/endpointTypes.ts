@@ -32,7 +32,7 @@ export type ExamStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type ExamAttemptStatus = "STARTED" | "SUBMITTED" | "NEEDS_GRADING" | "GRADED" | "EXPIRED";
 
 export interface QuestionMetadata {
-  options?: Array<{ id: string; text: string; correct?: boolean }>;
+  options?: Array<{ id: string; text: string; correct?: boolean; isCorrect?: boolean }>;
   correctAnswer?: string;
   explanation?: string;
   [key: string]: unknown;

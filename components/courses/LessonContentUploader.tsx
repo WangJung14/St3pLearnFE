@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Upload, MonitorPlay } from "lucide-react";
+import useSWR from "swr";
+import { AlertCircle, CheckCircle2, Loader2, Upload, MonitorPlay, Link2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/apiConfig";
 import { buildAuthHeaders } from "@/lib/authHeaders";
 
@@ -33,6 +34,7 @@ interface LessonContentUploaderProps {
   courseId: string;
   chapterId: string;
   lessonId: string;
+  lessonType?: string;
   token: string | null;
   onUploaded: () => void | Promise<unknown>;
 }
@@ -73,6 +75,7 @@ export default function LessonContentUploader({
   courseId,
   chapterId,
   lessonId,
+  lessonType,
   token,
   onUploaded,
 }: LessonContentUploaderProps) {
@@ -80,9 +83,22 @@ export default function LessonContentUploader({
   const [activeTab, setActiveTab] = useState<"upload" | "youtube" | "text">("upload");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [textContent, setTextContent] = useState("");
+  const [selectedExamId, setSelectedExamId] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Tải danh sách đề thi/bài tập trắc nghiệm đã tạo của khóa học
+  const { data: exams = [] } = useSWR<any[]>(
+    lessonType === "QUIZ" && token ? [`${API_BASE_URL}/api/learning/courses/${courseId}/exams`, token] as const : null,
+    async ([url, currentToken]: readonly [string, string]) => {
+      const res = await fetch(url, { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) return [];
+      const body = await res.json();
+      return unwrapData(body) || [];
+    },
+    { revalidateOnFocus: false }
+  );
 
   const handleFile = async (file: File | undefined) => {
     setMessage("");
@@ -275,6 +291,106 @@ export default function LessonContentUploader({
       setIsUploading(false);
     }
   };
+
+  const handleLinkExam = async () => {
+    setMessage("");
+    setErrorMessage("");
+
+    if (!selectedExamId) {
+      setErrorMessage("Vui lòng chọn một đề thi/bài tập.");
+      return;
+    }
+    if (!token) {
+      setErrorMessage("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const saveRes = await fetch(
+        `${API_BASE_URL}/api/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildAuthHeaders(token),
+          },
+          body: JSON.stringify({
+            contentType: "QUIZ",
+            storageUrl: selectedExamId,
+            fileSize: 0,
+          }),
+        }
+      );
+      const saveBody = await saveRes.json().catch(() => null) as { message?: string } | null;
+      if (!saveRes.ok) {
+        throw new Error(saveBody?.message ?? "Không liên kết được bài kiểm tra");
+      }
+
+      setMessage("Đã liên kết bài kiểm tra thành công.");
+      await onUploaded();
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : "Lỗi khi liên kết bài thi";
+      setErrorMessage(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // UI đặc biệt cho bài học loại QUIZ (Trắc nghiệm/Kiểm tra)
+  if (lessonType === "QUIZ") {
+    return (
+      <div className="space-y-3 bg-gray-50/50 p-4 border border-gray-100 rounded-2xl w-[320px]">
+        <div className="flex flex-col gap-2">
+          <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider flex items-center gap-1">
+            <Link2 className="w-3.5 h-3.5 text-primary" />
+            Chọn Bài Kiểm Tra để liên kết
+          </label>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedExamId}
+              onChange={(e) => setSelectedExamId(e.target.value)}
+              disabled={isUploading}
+              className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold bg-white"
+            >
+              <option value="">-- Chọn bài kiểm tra --</option>
+              {exams.map((exam: any) => (
+                <option key={exam.id} value={exam.id}>
+                  {exam.title} ({exam.durationMinutes}m)
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleLinkExam}
+              disabled={!selectedExamId || isUploading}
+              className="inline-flex items-center gap-1 rounded-xl bg-primary hover:opacity-90 px-4 py-2.5 text-xs font-extrabold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 shrink-0 cursor-pointer"
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gán bài"}
+            </button>
+          </div>
+          {exams.length === 0 && (
+            <p className="text-3xs text-amber-600 font-bold leading-normal">
+              * Khóa học này chưa có bài kiểm tra nào được xuất bản. Vui lòng tạo đề thi trước trong menu Quản lý Đề thi.
+            </p>
+          )}
+        </div>
+
+        {message && (
+          <p className="flex items-center gap-1 text-3xs font-bold text-emerald-600 mt-2">
+            <CheckCircle2 className="h-3 w-3" />
+            {message}
+          </p>
+        )}
+
+        {errorMessage && (
+          <p className="flex max-w-xs items-start gap-1 text-3xs font-bold text-red-600 mt-2">
+            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>{errorMessage}</span>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/apiConfig";
-import { ArrowLeft, Play, FileText, CheckCircle2, MessageSquare, Edit3, ChevronRight, Video, Volume2, BookOpen } from "lucide-react";
+import { ArrowLeft, Play, FileText, CheckCircle2, MessageSquare, Edit3, ChevronRight, Video, Volume2, BookOpen, HelpCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/Toast";
 import { apiFetch } from "@/lib/apiFetch";
@@ -24,7 +24,8 @@ interface Lesson {
   audioUrl?: string;
   pdfUrl?: string;
   textContent?: string;
-  type?: "video" | "audio" | "pdf" | "text";
+  storageUrl?: string;
+  type?: "video" | "audio" | "pdf" | "text" | "quiz";
 }
 
 interface Chapter {
@@ -103,6 +104,10 @@ export default function LearningPlayerPage({
             } else if (type === "TEXT") {
               normalized.type = "text";
               normalized.videoUrl = undefined;
+            } else if (type === "QUIZ") {
+              normalized.type = "quiz";
+              normalized.storageUrl = lesson.videoUrl;
+              normalized.videoUrl = undefined;
             } else {
               normalized.type = "video";
             }
@@ -126,6 +131,7 @@ export default function LearningPlayerPage({
     { revalidateOnFocus: false }
   );
 
+  const examsList = Array.isArray(exams) ? exams : [];
   const courseData = course;
   
   // Chỉ tải tiến độ nếu là Học viên thực sự (Teacher/Admin xem trước không cần track)
@@ -338,6 +344,30 @@ export default function LearningPlayerPage({
                   <p className="text-gray-400 text-xs">{activeLesson.title}</p>
                 </div>
                 <audio src={activeLesson.audioUrl} controls className="w-full max-w-md mt-4" />
+              </div>
+            ) : activeLesson.type === "quiz" ? (
+              <div className="w-full h-full bg-gradient-to-tr from-slate-900 to-slate-800 flex flex-col justify-center items-center p-6 space-y-4">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 w-[320px] max-w-full text-center space-y-4 shadow-2xl">
+                  <div className="w-12 h-12 bg-pink-500/25 rounded-full flex items-center justify-center mx-auto">
+                    <FileText className="w-6 h-6 text-pink-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-white font-extrabold text-xs leading-snug">Bài học Kiểm tra / Trắc nghiệm</h3>
+                    <p className="text-gray-300 text-[10px] font-medium leading-relaxed">Bấm nút bên dưới để tiến hành làm bài thi liên kết với bài học này.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (activeLesson.storageUrl) {
+                        router.push(`/student/exams/${activeLesson.storageUrl}`);
+                      } else {
+                        toast.error("Bài kiểm tra chưa được liên kết!");
+                      }
+                    }}
+                    className="w-full bg-primary text-white text-[11px] font-black py-2.5 rounded-xl hover:opacity-95 transition-all shadow-lg hover:shadow-primary/20 cursor-pointer"
+                  >
+                    Bắt đầu làm bài thi
+                  </button>
+                </div>
               </div>
             ) : activeLesson.textContent ? (
               <div className="w-full h-full bg-white overflow-y-auto p-8 font-sans leading-relaxed text-gray-800 text-sm select-text">
@@ -673,10 +703,12 @@ export default function LearningPlayerPage({
                             : "bg-white border-gray-100 hover:border-pink-200 text-gray-600"
                         }`}
                       >
-                        {lesson.videoUrl ? (
+                        {lesson.type === "video" ? (
                           <Video className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
-                        ) : lesson.audioUrl ? (
+                        ) : lesson.type === "audio" ? (
                           <Volume2 className="w-4 h-4 shrink-0 mt-0.5 text-secondary" />
+                        ) : lesson.type === "quiz" ? (
+                          <HelpCircle className="w-4 h-4 shrink-0 mt-0.5 text-pink-500" />
                         ) : (
                           <FileText className="w-4 h-4 shrink-0 mt-0.5 text-purple-500" />
                         )}
@@ -703,13 +735,13 @@ export default function LearningPlayerPage({
       >
         <div className="p-6 space-y-4">
           <p className="text-xs text-gray-500">Chọn một bài thi/bài tập dưới đây để bắt đầu làm bài:</p>
-          {exams.length === 0 ? (
+          {examsList.length === 0 ? (
             <div className="text-center p-8 bg-gray-50 rounded-2xl text-xs text-gray-400 font-bold">
               Khóa học này hiện chưa có bài thi hay bài tập nào được xuất bản.
             </div>
           ) : (
             <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-              {exams.map((exam) => (
+              {examsList.map((exam) => (
                 <div
                   key={exam.id}
                   className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl hover:border-primary/20 transition-all"

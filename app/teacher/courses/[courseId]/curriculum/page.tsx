@@ -537,6 +537,7 @@ function CurriculumBuilderContent({
                               courseId={courseId}
                               chapterId={chapter.id}
                               lessonId={lesson.id}
+                              lessonType={lesson.lessonType}
                               token={token}
                               onUploaded={() => mutateCurriculum()}
                             />
