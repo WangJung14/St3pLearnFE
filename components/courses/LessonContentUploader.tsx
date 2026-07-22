@@ -102,6 +102,25 @@ export default function LessonContentUploader({
     { revalidateOnFocus: false }
   );
 
+  const [selectedBankId, setSelectedBankId] = useState("");
+  const [questionType, setQuestionType] = useState("SINGLE_CHOICE");
+
+  // Tải danh sách ngân hàng câu hỏi
+  const { data: questionBanks = [] } = useSWR<any[]>(
+    token ? [`${API_BASE_URL}/api/learning/question-banks`, token] as const : null,
+    async ([url, currentToken]: readonly [string, string]) => {
+      const res = await fetch(url, { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) return [];
+      const body = await res.json();
+      return unwrapData(body) || [];
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const filteredBanks = Array.isArray(questionBanks)
+    ? questionBanks.filter((bank: any) => bank.courseId === courseId)
+    : [];
+
   const handleFile = async (file: File | undefined) => {
     setMessage("");
     setErrorMessage("");
@@ -654,10 +673,134 @@ export default function LessonContentUploader({
                     setIsUploading(false);
                   }
                 }}
-                className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-800 font-black text-3xs rounded-lg transition-all border border-purple-200 cursor-pointer disabled:opacity-50"
+                className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-800 font-black text-3xs rounded-lg transition-all border border-purple-200 cursor-pointer disabled:opacity-50 w-full"
               >
-                Gửi văn bản cho AI
+                Gửi văn bản cho AI nạp tri thức
               </button>
+            </div>
+
+            <div className="pt-3 border-t border-purple-200 space-y-3">
+              <label className="text-3xs font-black text-purple-900 flex items-center gap-1.5 uppercase tracking-wider">
+                <Brain className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                Tự động tạo bằng AI (Ollama)
+              </label>
+
+              {/* Ngân hàng câu hỏi Selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500">Lưu vào Ngân hàng câu hỏi:</label>
+                <select
+                  value={selectedBankId}
+                  onChange={(e) => setSelectedBankId(e.target.value)}
+                  disabled={isUploading}
+                  className="w-full px-2 py-1.5 text-3xs border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 font-bold bg-white"
+                >
+                  <option value="">-- Tạo ngân hàng câu hỏi mới --</option>
+                  {filteredBanks.map((bank: any) => (
+                    <option key={bank.id} value={bank.id}>
+                      {bank.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Loại câu hỏi Selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-500">Loại câu hỏi muốn tạo:</label>
+                <select
+                  value={questionType}
+                  onChange={(e) => setQuestionType(e.target.value)}
+                  disabled={isUploading}
+                  className="w-full px-2 py-1.5 text-3xs border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 font-bold bg-white"
+                >
+                  <option value="SINGLE_CHOICE">Trắc nghiệm chọn 1 đáp án (Single Choice)</option>
+                  <option value="MULTIPLE_CHOICE">Trắc nghiệm chọn nhiều đáp án (Multiple Choice)</option>
+                  <option value="TRUE_FALSE">Câu hỏi Đúng / Sai (True / False)</option>
+                  <option value="ESSAY">Câu hỏi Tự luận / Trả lời ngắn (Text)</option>
+                </select>
+              </div>
+              
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={!aiTextContent.trim() || isUploading}
+                  onClick={async () => {
+                    if (!token || !aiTextContent.trim()) return;
+                    setIsUploading(true);
+                    setMessage("");
+                    setErrorMessage("");
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/learning/ai/generate-quiz`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...buildAuthHeaders(token, "TEACHER"),
+                        },
+                        body: JSON.stringify({
+                          courseId,
+                          bankId: selectedBankId || null,
+                          lessonTitle: `Bài học ${lessonId.substring(0, 8)}`,
+                          lessonContent: aiTextContent.trim(),
+                          questionType,
+                          numQuestions: 5,
+                        }),
+                      });
+                      if (!res.ok) {
+                        const errBody = await res.json().catch(() => null);
+                        throw new Error(errBody?.message || "Tạo câu hỏi thất bại");
+                      }
+                      setMessage(`Đã tự động tạo thành công 5 câu hỏi (${questionType}) và lưu vào ngân hàng câu hỏi!`);
+                    } catch (err: unknown) {
+                      setErrorMessage(err instanceof Error ? err.message : "Lỗi khi tạo câu hỏi");
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }}
+                  className="flex-1 px-2.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-3xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  Tạo 5 câu hỏi
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!aiTextContent.trim() || isUploading}
+                  onClick={async () => {
+                    if (!token || !aiTextContent.trim()) return;
+                    setIsUploading(true);
+                    setMessage("");
+                    setErrorMessage("");
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/learning/ai/generate-flashcards`, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...buildAuthHeaders(token, "TEACHER"),
+                        },
+                        body: JSON.stringify({
+                          courseId,
+                          lessonTitle: `Bài học ${lessonId.substring(0, 8)}`,
+                          lessonContent: aiTextContent.trim(),
+                          numFlashcards: 5,
+                        }),
+                      });
+                      if (!res.ok) {
+                        const errBody = await res.json().catch(() => null);
+                        throw new Error(errBody?.message || "Tạo flashcards thất bại");
+                      }
+                      setMessage("Đã tự động tạo bộ Flashcard nháp thành công! Hãy kiểm tra trong mục Quản lý Flashcard.");
+                    } catch (err: unknown) {
+                      setErrorMessage(err instanceof Error ? err.message : "Lỗi khi tạo bộ Flashcard");
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }}
+                  className="flex-1 px-2.5 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-black text-3xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  Tạo 5 Flashcards
+                </button>
+              </div>
+              <p className="text-[9px] text-gray-400 font-bold leading-normal italic text-center">
+                * AI sẽ sử dụng chính đoạn văn bản bạn nhập ở trên để phân tích và tạo câu hỏi hoặc thẻ ghi nhớ.
+              </p>
             </div>
           </div>
         </div>
