@@ -32,11 +32,35 @@ export default function StudentSpeakingPage() {
   const [currentAiText, setCurrentAiText] = useState("");
   const [userTranscript, setUserTranscript] = useState("");
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  
+  // Dịch thuật & Gợi ý phản hồi (Hint)
+  const [translatedAiText, setTranslatedAiText] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [currentHint, setCurrentHint] = useState("");
 
   // Cấu hình chủ đề & Camera
   const [customTopic, setCustomTopic] = useState("");
   const [useCamera, setUseCamera] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+
+  const handleTranslate = async (text: string) => {
+    if (!text) return;
+    setIsTranslating(true);
+    try {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(text)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const translated = data[0].map((s: any) => s[0]).join("");
+        setTranslatedAiText(translated);
+      }
+    } catch (e) {
+      console.error("Dịch thất bại:", e);
+      setTranslatedAiText("Không thể dịch vào lúc này.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const socketRef = useRef<WebSocket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -97,6 +121,18 @@ export default function StudentSpeakingPage() {
     };
   }, [useCamera, step]);
 
+  // Đồng bộ hóa các trạng thái sang Refs để chống Stale Closure (Lỗi bất đồng bộ và đua trạng thái trong React)
+  const chatStateRef = useRef(chatState);
+  const isMutedRef = useRef(isMuted);
+
+  useEffect(() => {
+    chatStateRef.current = chatState;
+  }, [chatState]);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
   // Khởi tạo Web Speech API cho STT
   useEffect(() => {
     if (typeof window !== "undefined" && step === "TALKING") {
@@ -129,7 +165,10 @@ export default function StudentSpeakingPage() {
             sendTimeoutRef.current = setTimeout(() => {
               const textToSend = accumulatedTextRef.current.trim();
               if (textToSend && socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                // Cập nhật trạng thái và Ref đồng bộ ngay lập tức để chặn onend khởi động lại mic
                 setChatState("THINKING");
+                chatStateRef.current = "THINKING";
+                
                 setTranscripts((prev) => [...prev, { role: "user", text: textToSend }]);
                 
                 socketRef.current.send(JSON.stringify({
@@ -157,8 +196,8 @@ export default function StudentSpeakingPage() {
         };
 
         recognition.onend = () => {
-          console.log("[STT] Kết thúc lắng nghe.");
-          if (chatState === "LISTENING" && !isMuted) {
+          console.log("[STT] Kết thúc lắng nghe. Trạng thái hiện tại:", chatStateRef.current);
+          if (chatStateRef.current === "LISTENING" && !isMutedRef.current) {
             try {
               recognitionRef.current?.start();
             } catch (e) {}
@@ -168,16 +207,40 @@ export default function StudentSpeakingPage() {
         recognitionRef.current = recognition;
       }
     }
-  }, [chatState, isMuted, step]);
+  }, [step]);
+
+  // Khôi phục nhận diện giọng nói khi tab lại hoạt động (gấp/mở tab, chuyển tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("[STT] Tab hoạt động trở lại. Đang khôi phục micro...");
+        if (step === "TALKING" && chatStateRef.current === "LISTENING" && !isMutedRef.current) {
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            // Đã chạy hoặc đang ghi âm, có thể bỏ qua
+          }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [step]);
 
   // Kết nối WebSocket & bắt đầu hội thoại
   const startConversation = (overrideTopic?: string) => {
     setStep("TALKING");
     setChatState("CONNECTING");
+    chatStateRef.current = "CONNECTING";
     setTranscripts([]);
     setEvaluation(null);
     setCurrentAiText("");
     setUserTranscript("");
+    setTranslatedAiText("");
+    setCurrentHint("");
 
     const topicToUse = typeof overrideTopic === "string" ? overrideTopic : customTopic;
     const encodedTopic = encodeURIComponent((topicToUse || "").trim());
@@ -188,13 +251,17 @@ export default function StudentSpeakingPage() {
     ws.onopen = () => {
       console.log("[WS] Kết nối thành công.");
       setChatState("SPEAKING");
+      chatStateRef.current = "SPEAKING";
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "AI_RESPONSE") {
         setChatState("SPEAKING");
+        chatStateRef.current = "SPEAKING";
         setCurrentAiText(data.text);
+        setTranslatedAiText(""); // Reset translation for new message
+        setCurrentHint(data.hint || ""); // Store the suggestion hint
         setTranscripts((prev) => [...prev, { role: "ai", text: data.text }]);
 
         if (data.audio) {
@@ -204,18 +271,21 @@ export default function StudentSpeakingPage() {
           
           audio.onended = () => {
             setChatState("LISTENING");
-            if (!isMuted) {
+            chatStateRef.current = "LISTENING";
+            if (!isMutedRef.current) {
               try { recognitionRef.current?.start(); } catch (e) {}
             }
           };
         } else {
           setChatState("LISTENING");
-          if (!isMuted) {
+          chatStateRef.current = "LISTENING";
+          if (!isMutedRef.current) {
             try { recognitionRef.current?.start(); } catch (e) {}
           }
         }
       } else if (data.type === "EVALUATION") {
         setChatState("ENDED");
+        chatStateRef.current = "ENDED";
         setEvaluation(data.evaluation);
         reloadHistory();
       }
@@ -242,6 +312,7 @@ export default function StudentSpeakingPage() {
   const handleEndCall = () => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       setChatState("THINKING");
+      chatStateRef.current = "THINKING";
       socketRef.current.send(JSON.stringify({ type: "END_CALL" }));
     } else {
       setStep("SETUP");
@@ -251,11 +322,13 @@ export default function StudentSpeakingPage() {
   const toggleMute = () => {
     if (isMuted) {
       setIsMuted(false);
-      if (chatState === "LISTENING") {
+      isMutedRef.current = false;
+      if (chatStateRef.current === "LISTENING") {
         try { recognitionRef.current?.start(); } catch (e) {}
       }
     } else {
       setIsMuted(true);
+      isMutedRef.current = true;
       try { recognitionRef.current?.stop(); } catch (e) {}
     }
   };
@@ -497,9 +570,9 @@ export default function StudentSpeakingPage() {
               )}
             </div>
 
-            {/* PHẦN DƯỚI: Hộp văn bản phụ đề (Google Meet Style) - Không bao giờ chồng đè lên camera */}
-            <div className="w-full max-w-2xl mx-auto px-6 z-20 pb-4 shrink-0">
-              <div className="min-h-[72px] flex items-center justify-center">
+            {/* PHẦN DƯỚI: Hộp văn bản phụ đề (Google Meet Style) & Gợi ý phản hồi (Hints) */}
+            <div className="w-full max-w-2xl mx-auto px-6 z-20 pb-4 shrink-0 space-y-3">
+              <div className="min-h-[72px] flex flex-col items-center justify-center space-y-2.5 w-full">
                 {chatState === "LISTENING" && (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl w-full text-center">
                     <p className="text-[10px] font-black text-emerald-400 mb-1 uppercase tracking-wider">Bạn đang nói:</p>
@@ -514,12 +587,43 @@ export default function StudentSpeakingPage() {
                     <p className="text-sm font-bold text-white">
                       {currentAiText}
                     </p>
+                    {translatedAiText ? (
+                      <p className="text-xs text-amber-300 font-bold border-t border-blue-500/20 pt-1.5 mt-1.5">
+                        💡 Dịch nghĩa: {translatedAiText}
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() => handleTranslate(currentAiText)}
+                        className="mt-2 text-[10px] font-black bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+                        disabled={isTranslating}
+                      >
+                        {isTranslating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        <span>Dịch nghĩa (Translate)</span>
+                      </button>
+                    )}
                   </div>
                 )}
                 {chatState === "ENDED" && (
                   <p className="text-sm font-extrabold text-red-400 text-center w-full">
                     Cuộc trò chuyện đã gác máy. Hãy xem kết quả nhận xét sửa lỗi sai bên phải.
                   </p>
+                )}
+
+                {/* Gợi ý câu trả lời (Hints) khi đến lượt học sinh nói */}
+                {currentHint && chatState === "LISTENING" && (
+                  <div className="bg-slate-800/60 border border-slate-700/50 px-5 py-3 rounded-2xl w-full text-center shadow-sm space-y-1">
+                    <p className="text-[9px] font-black text-purple-400 mb-1 uppercase tracking-wider">
+                      💡 Ý tưởng trả lời (Suggestions):
+                    </p>
+                    {currentHint.split("|").map((opt, idx) => {
+                      const cleaned = opt.replace(/Option\s*\d+\s*:/i, "").replace(/Gợi ý\s*\d+\s*:/i, "").trim();
+                      return (
+                        <p key={idx} className="text-xs font-semibold text-slate-200 italic">
+                          Gợi ý {idx + 1}: {cleaned}
+                        </p>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
