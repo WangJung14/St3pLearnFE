@@ -14,6 +14,7 @@ import { buildAuthHeaders } from "@/lib/authHeaders";
 import { unwrapData, type ApiResponse } from "@/lib/apiResponses";
 import type { ResumeLearning } from "@/lib/endpointTypes";
 import AIAssistantModal from "@/components/ai/AIAssistantModal";
+import SpeakingRoomModal from "@/components/courses/SpeakingRoomModal";
 
 interface Lesson {
   id: string;
@@ -69,6 +70,7 @@ export default function LearningPlayerPage({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [showExamModal, setShowExamModal] = useState(false);
+  const [isSpeakingOpen, setIsSpeakingOpen] = useState(false);
 
   const { data: comments = [], mutate: mutateComments } = useSWR<any[]>(
     activeLesson?.id ? `/api/courses/lessons/${activeLesson.id}/comments` : null,

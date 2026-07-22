@@ -62,6 +62,7 @@ const ROLE_SHELLS: Record<UserRole, RoleShellConfig> = {
       { label: "Khóa học của tôi", href: "/student/courses", icon: BookOpen },
       { label: "Wishlist", href: "/student/wishlist", icon: Heart },
       { label: "Từ vựng", href: "/student/vocabulary", icon: Brain },
+      { label: "AI Speaking", href: "/student/speaking", icon: Sparkles },
       { label: "Bài thi", href: "/student/exams", icon: ClipboardList },
       { label: "Chứng chỉ", href: "/student/certificates", icon: Award },
       { label: "Thanh toán", href: "/student/payments", icon: CreditCard },
