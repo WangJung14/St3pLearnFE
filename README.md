@@ -26,6 +26,12 @@
 
 - 📚 **Chợ khóa học (`/courses`):** Tìm kiếm, lọc khóa học theo trình độ (A1, A2, B1, B2, C1) và danh mục.
 - 🎓 **Khóa học của tôi (`/student/courses`):** Danh sách khóa học đã đăng ký kèm thanh tiến độ hoàn thành `%`.
+- 🎙️ **Phòng Luyện Nói AI (`/student/speaking`):** Luyện nói phản xạ tiếng Anh 1-1 với trợ lý ảo bản xứ (Sử dụng Web Speech API để ghi âm & EdgeTTS phát âm thanh).
+  - ⚙️ **Cấu hình Hiển thị:** Menu Popover chỉnh ẩn/hiện "AI phản hồi", "Bạn đang nói", "Ý tưởng gợi ý".
+  - 🇻🇳 **Dịch thuật trực tiếp:** Bấm dịch nghĩa câu thoại tiếng Anh của AI sang tiếng Việt qua Google Translate API Client.
+  - 💡 **Gợi ý phản xạ (Hints):** Nhận 2 gợi ý câu trả lời ngắn bằng tiếng Anh để gợi ý phản hồi khi gặp khó khăn.
+  - 📂 **Lưu trữ chủ đề:** Lưu chủ đề tự soạn hoặc nạp tệp `.txt` vào `localStorage`, kèm danh sách chủ đề mẫu.
+  - 📁 **Xem lại lịch sử đàm thoại:** Trình bày dạng bong bóng tin nhắn chat kèm nhận xét sửa lỗi sai từ cơ sở dữ liệu PostgreSQL.
 - 🎥 **Trình phát bài học Đa phương tiện (`/student/player/[slug]`):** Xem Video, Audio, và trình chiếu tài liệu PDF trực tiếp từ Server không qua trung gian.
 - 🧠 **Học từ vựng Spaced Repetition (`/student/vocabulary`):** Luyện tập Flashcard ghi nhớ ngắt quãng, tạo bộ từ cá nhân và lưu bộ từ vựng công khai.
 - 📝 **Thực hành Bài thi Trắc nghiệm (`/student/exams`):** Làm bài kiểm tra tính giờ của khóa học đã ghi danh, tự động chấm điểm và xem đáp án.
