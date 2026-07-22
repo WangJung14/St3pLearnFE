@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, PhoneOff, Loader2, Award, Check, X, Sparkles, RefreshCw, Video, VideoOff, Upload, BookOpen, Flame, Clock } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Loader2, Award, Check, X, Sparkles, RefreshCw, Video, VideoOff, Upload, BookOpen, Flame, Clock, Settings } from "lucide-react";
 import useSWR from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { API_BASE_URL } from "@/lib/apiConfig";
@@ -38,10 +38,31 @@ export default function StudentSpeakingPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [currentHint, setCurrentHint] = useState("");
 
-  // Cấu hình chủ đề & Camera
+  // Cấu hình chủ đề & Camera & Toggles hiển thị
   const [customTopic, setCustomTopic] = useState("");
   const [useCamera, setUseCamera] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [showAiResponse, setShowAiResponse] = useState(false);
+  const [showUserSpeaking, setShowUserSpeaking] = useState(false);
+  const [showSuggestedReplies, setShowSuggestedReplies] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [isTopicSaved, setIsTopicSaved] = useState(false);
+
+  // Load custom topic từ localStorage khi vào trang
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedTopic = localStorage.getItem("speaking_custom_topic");
+      if (savedTopic) {
+        setCustomTopic(savedTopic);
+      }
+    }
+  }, []);
+
+  const saveTopicToLocalStorage = () => {
+    localStorage.setItem("speaking_custom_topic", customTopic);
+    setIsTopicSaved(true);
+    setTimeout(() => setIsTopicSaved(false), 2000);
+  };
 
   const handleTranslate = async (text: string) => {
     if (!text) return;
@@ -243,8 +264,11 @@ export default function StudentSpeakingPage() {
     setCurrentHint("");
 
     const topicToUse = typeof overrideTopic === "string" ? overrideTopic : customTopic;
+    if (typeof window !== "undefined" && !overrideTopic) {
+      localStorage.setItem("speaking_custom_topic", customTopic);
+    }
     const encodedTopic = encodeURIComponent((topicToUse || "").trim());
-    const wsUrl = `ws://localhost:7777/api/ai/speaking/ws?studentId=${user?.id}&courseId=${courseId}&lessonId=${lessonId}&topicContent=${encodedTopic}`;
+    const wsUrl = `ws://localhost:7777/api/ai/speaking/ws?studentId=${user?.id}&courseId=${courseId}&lessonId=${lessonId}&topicContent=${encodedTopic}&token=${token}`;
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
@@ -317,6 +341,14 @@ export default function StudentSpeakingPage() {
     } else {
       setStep("SETUP");
     }
+  };
+
+  const handleLoadPastSession = (session: any) => {
+    setEvaluation(session.parsedFeedback);
+    setTranscripts(session.parsedFeedback?.chatHistory || []);
+    setChatState("ENDED");
+    chatStateRef.current = "ENDED";
+    setStep("TALKING");
   };
 
   const toggleMute = () => {
@@ -404,11 +436,21 @@ export default function StudentSpeakingPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-extrabold text-gray-600">Chủ đề hoặc tài liệu muốn luyện tập:</label>
-                    <label className="flex items-center gap-1 text-[10px] font-black text-purple-600 hover:text-purple-700 cursor-pointer bg-purple-50 px-2 py-1 rounded-lg">
-                      <Upload className="w-3 h-3" />
-                      <span>Nạp tệp chủ đề (.txt)</span>
-                      <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={saveTopicToLocalStorage}
+                        className={`flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          isTopicSaved ? "bg-emerald-500 text-white animate-pulse" : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        <span>{isTopicSaved ? "Đã lưu! ✓" : "Lưu chủ đề"}</span>
+                      </button>
+                      <label className="flex items-center gap-1 text-[10px] font-black text-purple-600 hover:text-purple-700 cursor-pointer bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg transition-all">
+                        <Upload className="w-3 h-3" />
+                        <span>Nạp tệp (.txt)</span>
+                        <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
+                      </label>
+                    </div>
                   </div>
                   <textarea
                     value={customTopic}
@@ -436,16 +478,26 @@ export default function StudentSpeakingPage() {
                   {SUGGESTED_TOPICS.map((topic, i) => (
                     <div
                       key={i}
-                      onClick={() => handleLaunchPractice(topic.prompt)}
-                      className="bg-white border border-gray-100 hover:border-purple-200 rounded-3xl p-5 shadow-2xs cursor-pointer transition-all hover:shadow-sm flex flex-col justify-between space-y-4"
+                      className="bg-white border border-gray-100 hover:border-purple-200 rounded-3xl p-5 shadow-2xs transition-all flex flex-col justify-between space-y-4 hover:shadow-sm"
                     >
                       <div className="space-y-1">
                         <h4 className="text-xs font-extrabold text-slate-800">{topic.title}</h4>
                         <p className="text-3xs text-gray-400 font-medium leading-relaxed">{topic.desc}</p>
                       </div>
-                      <span className="text-[10px] font-black text-purple-600 flex items-center gap-1 self-start">
-                        Luyện nói ngay &rarr;
-                      </span>
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
+                        <button
+                          onClick={() => setCustomTopic(topic.prompt)}
+                          className="flex-1 py-1 text-[9px] font-black text-slate-600 hover:text-purple-600 bg-slate-50 hover:bg-purple-50 rounded-lg transition-all cursor-pointer text-center"
+                        >
+                          Chọn chủ đề
+                        </button>
+                        <button
+                          onClick={() => handleLaunchPractice(topic.prompt)}
+                          className="flex-1 py-1 text-[9px] font-black text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-all cursor-pointer text-center"
+                        >
+                          Luyện nói ngay
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -479,13 +531,17 @@ export default function StudentSpeakingPage() {
                     </p>
                   ) : (
                     pastEvaluations.map((item, idx) => (
-                      <div key={item.id} className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1.5">
+                      <button
+                        key={item.id}
+                        onClick={() => handleLoadPastSession(item)}
+                        className="w-full text-left bg-slate-50 hover:bg-purple-50/40 border border-slate-100 hover:border-purple-200 rounded-xl p-3 space-y-1.5 cursor-pointer transition-all shadow-3xs"
+                      >
                         <div className="flex justify-between text-4xs font-bold text-gray-400">
                           <span>Lần gọi #{pastEvaluations.length - idx}</span>
                           <span>{new Date(item.createdAt).toLocaleDateString()}</span>
                         </div>
                         <p className="text-4xs text-slate-600 font-semibold line-clamp-2">{item.parsedFeedback?.feedback}</p>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>
@@ -518,62 +574,92 @@ export default function StudentSpeakingPage() {
               </div>
               <button
                 onClick={() => setStep("SETUP")}
-                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs rounded-xl transition-all"
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer"
               >
                 Quay lại
               </button>
             </div>
 
-            {/* Body: Voice Avatar and Webcam Video in a clean side-by-side grid */}
-            <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 my-6 z-20 min-h-[300px] w-full px-6">
-              
-              {/* CỘT 1: AI Avatar */}
-              <div className="flex-grow flex flex-col items-center justify-center text-center">
-                {/* Vòng tròn đập loa của AI/User */}
-                <div className="relative flex items-center justify-center">
-                  {chatState === "SPEAKING" && (
-                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping scale-150 duration-1000"></div>
-                  )}
-                  {chatState === "LISTENING" && (
-                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-pulse scale-125"></div>
-                  )}
-                  
-                  <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all shadow-xl ${
-                    chatState === "SPEAKING" ? "bg-gradient-to-tr from-blue-600 to-indigo-600" :
-                    chatState === "LISTENING" ? "bg-gradient-to-tr from-emerald-600 to-teal-600" :
-                    chatState === "THINKING" ? "bg-gradient-to-tr from-purple-600 to-pink-600" :
-                    "bg-slate-700"
-                  }`}>
-                    {chatState === "THINKING" ? (
-                      <Loader2 className="w-14 h-14 text-white animate-spin" />
-                    ) : (
-                      <Sparkles className="w-14 h-14 text-white" />
+            {/* Body: Voice Avatar and Webcam Video, or conversation logs if ended */}
+            {chatState !== "ENDED" ? (
+              <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 my-6 z-20 min-h-[300px] w-full px-6">
+                
+                {/* CỘT 1: AI Avatar */}
+                <div className="flex-grow flex flex-col items-center justify-center text-center">
+                  {/* Vòng tròn đập loa của AI/User */}
+                  <div className="relative flex items-center justify-center">
+                    {chatState === "SPEAKING" && (
+                      <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping scale-150 duration-1000"></div>
                     )}
+                    {chatState === "LISTENING" && (
+                      <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-pulse scale-125"></div>
+                    )}
+                    
+                    <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all shadow-xl ${
+                      chatState === "SPEAKING" ? "bg-gradient-to-tr from-blue-600 to-indigo-600" :
+                      chatState === "LISTENING" ? "bg-gradient-to-tr from-emerald-600 to-teal-600" :
+                      chatState === "THINKING" ? "bg-gradient-to-tr from-purple-600 to-pink-600" :
+                      "bg-slate-700"
+                    }`}>
+                      {chatState === "THINKING" ? (
+                        <Loader2 className="w-14 h-14 text-white animate-spin" />
+                      ) : (
+                        <Sparkles className="w-14 h-14 text-white" />
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                {/* CỘT 2: Webcam view - Kích thước lớn, hoàn toàn tách biệt bên phải */}
+                {useCamera && (
+                  <div className="w-64 h-48 md:w-80 md:h-60 rounded-3xl overflow-hidden border-2 border-slate-700 bg-black shadow-2xl shrink-0 relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover transform -scale-x-100"
+                    />
+                    <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-black uppercase text-slate-300">
+                      Camera (Your Mouth)
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // HIỂN THỊ LỊCH SỬ TIN NHẮN (TRANSCRIPTS) KHI KẾT THÚC
+              <div className="flex-1 flex flex-col my-4 z-20 overflow-hidden w-full max-w-2xl mx-auto bg-slate-900/40 border border-slate-800/80 rounded-3xl p-6">
+                <h4 className="text-xs font-black text-purple-400 mb-4 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                  <Clock className="w-4 h-4" />
+                  Nội dung đoạn hội thoại đã thực hiện:
+                </h4>
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                  {transcripts.length === 0 ? (
+                    <p className="text-xs font-bold text-slate-400 text-center py-12">Không tìm thấy lịch sử hội thoại chi tiết.</p>
+                  ) : (
+                    transcripts.map((msg, i) => (
+                      <div key={i} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 px-1">
+                          {msg.role === "user" ? "Bạn (You)" : "AI Friend"}
+                        </span>
+                        <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-bold leading-normal ${
+                          msg.role === "user"
+                            ? "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-sm"
+                            : "bg-slate-850 border border-slate-700/60 text-slate-200 rounded-tl-none shadow-sm"
+                        }`}>
+                          {msg.text}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-
-              {/* CỘT 2: Webcam view - Kích thước lớn, hoàn toàn tách biệt bên phải */}
-              {useCamera && (
-                <div className="w-64 h-48 md:w-80 md:h-60 rounded-3xl overflow-hidden border-2 border-slate-700 bg-black shadow-2xl shrink-0 relative">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover transform -scale-x-100"
-                  />
-                  <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-black uppercase text-slate-300">
-                    Camera (Your Mouth)
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* PHẦN DƯỚI: Hộp văn bản phụ đề (Google Meet Style) & Gợi ý phản hồi (Hints) */}
             <div className="w-full max-w-2xl mx-auto px-6 z-20 pb-4 shrink-0 space-y-3">
               <div className="min-h-[72px] flex flex-col items-center justify-center space-y-2.5 w-full">
-                {chatState === "LISTENING" && (
+                {chatState === "LISTENING" && showUserSpeaking && (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl w-full text-center">
                     <p className="text-[10px] font-black text-emerald-400 mb-1 uppercase tracking-wider">Bạn đang nói:</p>
                     <p className="text-sm font-bold text-white italic">
@@ -581,7 +667,7 @@ export default function StudentSpeakingPage() {
                     </p>
                   </div>
                 )}
-                {chatState === "SPEAKING" && (
+                {(chatState === "SPEAKING" || chatState === "LISTENING") && showAiResponse && currentAiText && (
                   <div className="bg-blue-500/10 border border-blue-500/20 px-5 py-3 rounded-2xl w-full text-center">
                     <p className="text-[10px] font-black text-blue-400 mb-1 uppercase tracking-wider">AI phản hồi:</p>
                     <p className="text-sm font-bold text-white">
@@ -610,7 +696,7 @@ export default function StudentSpeakingPage() {
                 )}
 
                 {/* Gợi ý câu trả lời (Hints) khi đến lượt học sinh nói */}
-                {currentHint && chatState === "LISTENING" && (
+                {currentHint && chatState === "LISTENING" && showSuggestedReplies && (
                   <div className="bg-slate-800/60 border border-slate-700/50 px-5 py-3 rounded-2xl w-full text-center shadow-sm space-y-1">
                     <p className="text-[9px] font-black text-purple-400 mb-1 uppercase tracking-wider">
                       💡 Ý tưởng trả lời (Suggestions):
@@ -642,6 +728,66 @@ export default function StudentSpeakingPage() {
                   >
                     {useCamera ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                   </button>
+
+                   {/* Nút Cài đặt Hiển Thị phụ đề (Settings) */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                        showSettingsMenu ? "bg-purple-600 text-white" : "bg-slate-800 hover:bg-slate-700 text-slate-400"
+                      }`}
+                      title="Cấu hình hiển thị"
+                    >
+                      <Settings className="w-5 h-5" />
+                    </button>
+                    {showSettingsMenu && (
+                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-60 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-2xl z-50 space-y-3.5">
+                        <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-400 pb-1.5 border-b border-slate-800">
+                          ⚙️ Hiển thị phụ đề
+                        </h4>
+                        <div className="space-y-3">
+                          {/* Toggle AI Response */}
+                          <div className="flex justify-between items-center text-3xs font-extrabold">
+                            <span className="text-slate-300">Hiện "AI phản hồi"</span>
+                            <button
+                              onClick={() => setShowAiResponse(!showAiResponse)}
+                              className="focus:outline-none cursor-pointer"
+                            >
+                              <div className={`w-8 h-4.5 rounded-full transition-colors relative ${showAiResponse ? "bg-purple-600" : "bg-slate-750"}`}>
+                                <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[2px] transition-all ${showAiResponse ? "left-[16px]" : "left-[2px]"}`} />
+                              </div>
+                            </button>
+                          </div>
+
+                          {/* Toggle User Speaking */}
+                          <div className="flex justify-between items-center text-3xs font-extrabold">
+                            <span className="text-slate-300">Hiện "Bạn đang nói"</span>
+                            <button
+                              onClick={() => setShowUserSpeaking(!showUserSpeaking)}
+                              className="focus:outline-none cursor-pointer"
+                            >
+                              <div className={`w-8 h-4.5 rounded-full transition-colors relative ${showUserSpeaking ? "bg-purple-600" : "bg-slate-750"}`}>
+                                <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[2px] transition-all ${showUserSpeaking ? "left-[16px]" : "left-[2px]"}`} />
+                              </div>
+                            </button>
+                          </div>
+
+                          {/* Toggle Suggested Replies */}
+                          <div className="flex justify-between items-center text-3xs font-extrabold">
+                            <span className="text-slate-300">Hiện "Ý tưởng gợi ý"</span>
+                            <button
+                              onClick={() => setShowSuggestedReplies(!showSuggestedReplies)}
+                              className="focus:outline-none cursor-pointer"
+                            >
+                              <div className={`w-8 h-4.5 rounded-full transition-colors relative ${showSuggestedReplies ? "bg-purple-600" : "bg-slate-750"}`}>
+                                <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[2px] transition-all ${showSuggestedReplies ? "left-[16px]" : "left-[2px]"}`} />
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={toggleMute}
@@ -798,11 +944,11 @@ export default function StudentSpeakingPage() {
                         )}
                         <button
                           onClick={() => {
-                            setEvaluation(item.parsedFeedback);
+                            handleLoadPastSession(item);
                           }}
                           className="text-[10px] font-extrabold text-purple-600 hover:underline pt-1 block"
                         >
-                          Xem chi tiết lỗi sai
+                          Xem chi tiết lỗi sai & Đoạn hội thoại
                         </button>
                       </div>
                     ))
