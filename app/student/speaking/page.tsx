@@ -212,7 +212,7 @@ export default function StudentSpeakingPage() {
           if (err.error === "no-speech" || err.error === "aborted") {
             console.log(`[STT] Dừng lắng nghe (${err.error}).`);
           } else {
-            console.error("[STT] Lỗi ghi âm (mã lỗi):", err.error || err);
+            console.warn("[STT] Lỗi ghi âm (mã lỗi):", err.error || err);
           }
         };
 
